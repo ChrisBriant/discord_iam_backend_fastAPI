@@ -1,0 +1,12 @@
+.env
+.env_redirects
+files/
+#Certs
+*.pem
+#Service Files
+*.sock
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
