@@ -59,7 +59,7 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    discord_id = Column(Integer, nullable=False, index=True)
+    discord_id = Column(String, nullable=False, index=True, unique=True)
     user_name = Column(String, nullable=False, unique=True)
     global_name = Column(String, nullable=True)
     last_name = Column(String, nullable=False)
@@ -81,9 +81,9 @@ class User(Base):
     async def create_one(
         cls,
         db: AsyncSession,
-        discord_id : int,
+        discord_id : str,
         user_name: str,
-        global_name : str,
+        global_name : str | None,
         enabled: bool = True,
         terms_accepted: bool = True,
     ) -> "User":
