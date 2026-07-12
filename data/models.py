@@ -158,6 +158,54 @@ class User(Base):
 
 
     @classmethod
+    async def bulk_import(
+        cls,
+        db: AsyncSession,
+        users: list[dict],
+    ) -> dict:
+
+        inserted = []
+        existing = []
+        failed = []
+
+        for discord_user in users:
+
+            try:
+                existing_user = await db.execute(
+                    select(cls)
+                    .where(cls.discord_id == discord_user["id"])
+                )
+
+                existing_user = existing_user.scalar_one_or_none()
+
+                if existing_user is not None:
+                    existing.append(existing_user)
+                    continue
+
+                user = await cls.create_one(
+                    db,
+                    discord_id=discord_user["id"],
+                    user_name=discord_user["username"],
+                    global_name=discord_user["global_name"],
+                    roles=discord_user["roles"],
+                )
+
+                inserted.append(user)
+
+            except Exception as ex:
+                await db.rollback()
+                failed.append({
+                    "discord_id": discord_user["id"],
+                    "error": str(ex)
+                })
+
+        return {
+            "inserted": inserted,
+            "existing": existing,
+            "failed": failed,
+        }
+
+    @classmethod
     async def get_by_id(cls, db: AsyncSession, user_id: int):
         """
         Retrieve a user by ID with devices and tokens loaded.

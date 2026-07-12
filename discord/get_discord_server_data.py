@@ -84,38 +84,31 @@ async def add_users_to_db(user_data):
     # print("USER TO ADD", user_to_add)
 
     async with SessionLocal() as session:
-        exsiting_or_inserted_user = None
-        for discord_user in user_data:
-            try:
-                await User.create_one(
-                    session,
-                    discord_user['id'], 
-                    discord_user['username'],
-                    discord_user['global_name'],
-                    roles= discord_user['roles']
-                )
+        user_update_results = None
+        #BULK INSERT
+        try:
+            user_update_results = await User.bulk_import(session,user_data)
+        except Exception as e:
+            print("AN ERROR OCCURRED ON BULK UPDATE", user_update_results)
 
-                # exsiting_or_inserted_user = await User.create_one(
-                #     session,
-                #     user_to_add['id'], 
-                #     user_to_add['username'],
-                #     user_to_add['global_name'],
-                #     roles= user_to_add['roles']
-                # )
-                # exsiting_or_inserted_user = await User.create_one(
-                #     session,
-                #     user_to_add_2['id'], 
-                #     user_to_add_2['username'],
-                #     user_to_add_2['global_name'],
-                #     roles= user_to_add['roles']
-                # )
+        if user_update_results:
+            print("HERE IS THE RESULT OF THE LATEST IMPORT", user_update_results)
+        #INSERT ONE BY ONE
+        # for discord_user in user_data:
+        #     exsiting_or_inserted_user = None
 
-            # except ValueError as e:
-            #     print("USER ALREADY EXISTS", e)
-            except Exception as e:
-                print("DAABASE ERROR", e)
+        #     try:
+        #         await User.create_one(
+        #             session,
+        #             discord_user['id'], 
+        #             discord_user['username'],
+        #             discord_user['global_name'],
+        #             roles= discord_user['roles']
+        #         )
+        #     except Exception as e:
+        #         print("DAABASE ERROR", e)
 
-        print("INSERTED OR EXISTING USER", exsiting_or_inserted_user)
+        #print("INSERTED OR EXISTING USER", exsiting_or_inserted_user)
 
 
 if __name__ == "__main__":
