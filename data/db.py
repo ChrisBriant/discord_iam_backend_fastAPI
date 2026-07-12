@@ -17,7 +17,7 @@ DATABASE_URL = f"postgresql+asyncpg://{DB_USERNAME}:{DB_PASSWORD}@localhost/{DB_
 engine = create_async_engine(DATABASE_URL, echo=True)
 
 # Use async_sessionmaker instead of sessionmaker
-UsersSessionLocal = async_sessionmaker(
+SessionLocal = async_sessionmaker(
     bind=engine,
     expire_on_commit=False
 )

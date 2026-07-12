@@ -1,4 +1,4 @@
-from .db import Base, AsyncSession, UsersSessionLocal
+from .db import Base, AsyncSession, SessionLocal
 from typing import List
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import (
@@ -49,11 +49,30 @@ user_roles = Table(
 
 #CUSTOM EXCEPTIONS
 
-class ManagerDoesNotExist(Exception):
-    pass
+# class ManagerDoesNotExist(Exception):
+#     pass
 
-class DepartmentDoesNotExist(Exception):
-    pass
+# class DepartmentDoesNotExist(Exception):
+#     pass
+
+
+#
+# Role Model
+#
+
+class Role(Base):
+    __tablename__ = "roles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    discord_id = Column(String, nullable=False, unique=True)
+    name = Column(String, nullable=False, unique=True)
+
+    users = relationship(
+        "User",
+        secondary=user_roles,
+        back_populates="roles",
+    )
+
 
 class User(Base):
     __tablename__ = "users"
@@ -62,7 +81,6 @@ class User(Base):
     discord_id = Column(String, nullable=False, index=True, unique=True)
     user_name = Column(String, nullable=False, unique=True)
     global_name = Column(String, nullable=True)
-    last_name = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), nullable=False)
     terms_accepted = Column(Boolean, nullable=False, default=False)
     enabled = Column(Boolean, nullable=False, default=False)
@@ -85,18 +103,35 @@ class User(Base):
         user_name: str,
         global_name : str | None,
         enabled: bool = True,
+        roles : List | None = None,
         terms_accepted: bool = True,
     ) -> "User":
 
-        #DEBUGGING
-        result = await db.execute(text("SELECT current_database(), inet_server_addr()"))
-        print("SESSION DB:", result.all())
+        #Process the roles
+        user_roles = []
+
+        for role_data in roles:
+            result = await db.execute(
+                select(Role).where(Role.discord_id == role_data["discord_id"])
+            )
+            role = result.scalar_one_or_none()
+
+            if role is None:
+                role = Role(
+                    discord_id=role_data["discord_id"],
+                    name=role_data["name"],
+                )
+                db.add(role)
+                await db.flush()   # assigns PK without committing
+
+            user_roles.append(role)
 
         user = cls(
             discord_id=discord_id,
             user_name=user_name,
             global_name=global_name,
             created_at=datetime.now(timezone.utc),
+            roles = user_roles,
             enabled=enabled,
             terms_accepted=terms_accepted,
         )
@@ -109,9 +144,17 @@ class User(Base):
         except IntegrityError as ie:
             print("Error inserting user", ie)
             await db.rollback()
-            raise ValueError(ie._message)
-    
-        return user
+            #raise ValueError(ie._message)
+
+        inserted_user = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.roles)
+            )
+        .where(cls.discord_id == discord_id))
+
+
+        return inserted_user.scalar_one_or_none()
 
 
     @classmethod
@@ -273,23 +316,7 @@ class User(Base):
         return updated_user.scalar_one()
 
 
-#
-# Role Model
-#
 
-class Role(Base):
-    __tablename__ = "roles"
-
-    id = Column(Integer, primary_key=True, index=True)
-
-    name = Column(String, nullable=False, unique=True)
-    description = Column(String, nullable=True)
-
-    users = relationship(
-        "User",
-        secondary=user_roles,
-        back_populates="roles",
-    )
 
 
 async def main():
