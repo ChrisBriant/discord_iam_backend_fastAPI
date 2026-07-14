@@ -40,12 +40,7 @@ class DatabaseUpdateError(Exception):
 #
 
 
-user_roles = Table(
-    "user_roles",
-    Base.metadata,
-    Column("user_id", ForeignKey("users.id"), primary_key=True),
-    Column("role_id", ForeignKey("roles.id"), primary_key=True),
-)
+
 
 #CUSTOM EXCEPTIONS
 
@@ -60,6 +55,13 @@ user_roles = Table(
 # Role Model
 #
 
+user_roles = Table(
+    "user_roles",
+    Base.metadata,
+    Column("user_id", ForeignKey("users.id"), primary_key=True),
+    Column("role_id", ForeignKey("roles.id"), primary_key=True),
+)
+
 class Role(Base):
     __tablename__ = "roles"
 
@@ -73,6 +75,54 @@ class Role(Base):
         back_populates="roles",
     )
 
+
+    @classmethod
+    async def sync_user_roles(
+        cls,
+        db: AsyncSession,
+        user: "User",
+        discord_roles: list[dict],
+    ):
+        print("DISCORD ROLES", discord_roles)
+        discord_ids = [r["discord_id"] for r in discord_roles]
+
+        result = await db.execute(
+            select(Role).where(Role.discord_id.in_(discord_ids))
+        )
+        existing_roles = result.scalars().all()
+
+        role_lookup = {r.discord_id: r for r in existing_roles}
+
+        assigned_roles = []
+
+        for discord_role in discord_roles:
+
+            role = role_lookup.get(discord_role["discord_id"])
+
+            print("ROLE BEFORE INSERT", discord_role,role)
+
+            if role is None:
+                print("ROLE IS NONE")
+                role = Role(
+                    discord_id=discord_role["discord_id"],
+                    name=discord_role["name"],
+                )
+                db.add(role)
+                await db.flush()      # obtain primary key
+                print("ROLE AFTER FLUSH", role.id, role.discord_id, role.name)
+                role_lookup[role.discord_id] = role
+                
+            assigned_roles.append(role)
+        print("ASSIGNED ROLES", assigned_roles)
+        user.roles = assigned_roles
+        print(
+            "USER ROLES BEFORE RETURN",
+            [r.name for r in user.roles]
+        )
+    # @classmethod
+    # async def update_user_roles(cls,existing_user: User, discord_roles):
+    #     for role in discord_roles:
+    #         print(f"{existing_user.username} - ROLE", role)
 
 class User(Base):
     __tablename__ = "users"
@@ -156,6 +206,11 @@ class User(Base):
 
         return inserted_user.scalar_one_or_none()
 
+    # @staticmethod
+    # async def update_roles(existing_user: "User", discord_roles):
+    #     for role in discord_roles:
+    #         print(f"{existing_user.user_name} - ROLE", role)
+
 
     @classmethod
     async def bulk_import(
@@ -173,6 +228,7 @@ class User(Base):
             try:
                 existing_user = await db.execute(
                     select(cls)
+                    .options(selectinload(User.roles))
                     .where(cls.discord_id == discord_user["id"])
                 )
 
@@ -180,6 +236,8 @@ class User(Base):
 
                 if existing_user is not None:
                     existing.append(existing_user)
+                    #Update roles if the existing user has changed roles
+                    await Role.sync_user_roles(db,existing_user,discord_user["roles"])
                     continue
 
                 user = await cls.create_one(
@@ -199,6 +257,7 @@ class User(Base):
                     "error": str(ex)
                 })
 
+        await db.commit()
         return {
             "inserted": inserted,
             "existing": existing,
