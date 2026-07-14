@@ -134,6 +134,75 @@ class Role(Base):
             "removed_roles": removed_roles,
         }
 
+
+    @classmethod
+    async def sync_roles(
+        cls,
+        db: AsyncSession,
+        discord_roles: list[dict],
+    ) -> dict:
+
+        renamed_roles = []
+        deleted_roles = []
+
+        # Get all roles currently in database
+        result = await db.execute(
+            select(cls)
+            .options(selectinload(cls.users))
+        )
+
+        existing_roles = result.scalars().all()
+
+        existing_lookup = {
+            role.discord_id: role
+            for role in existing_roles
+        }
+
+        discord_role_ids = {
+            role["discord_id"]
+            for role in discord_roles
+        }
+
+        # Check roles that still exist in Discord
+        for discord_role in discord_roles:
+
+            existing_role = existing_lookup.get(
+                discord_role["discord_id"]
+            )
+
+            if existing_role:
+
+                if existing_role.name != discord_role["name"]:
+                    renamed_roles.append({
+                        "discord_id": existing_role.discord_id,
+                        "old_name": existing_role.name,
+                        "new_name": discord_role["name"],
+                    })
+
+                    existing_role.name = discord_role["name"]
+
+
+        # Find roles removed from Discord
+        for existing_role in existing_roles:
+
+            if existing_role.discord_id not in discord_role_ids:
+
+                deleted_roles.append({
+                    "discord_id": existing_role.discord_id,
+                    "name": existing_role.name,
+                })
+
+                # Delete the role
+                await db.delete(existing_role)
+
+
+        await db.flush()
+
+        return {
+            "renamed_roles": renamed_roles,
+            "deleted_roles": deleted_roles,
+        }
+
 class User(Base):
     __tablename__ = "users"
 

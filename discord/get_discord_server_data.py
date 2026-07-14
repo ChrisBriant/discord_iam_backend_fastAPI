@@ -1,6 +1,6 @@
 import dotenv, os, requests
 from pathlib import Path
-from data.models import User
+from data.models import User, Role
 from data.db import SessionLocal
 import asyncio
 from sqlalchemy.exc import IntegrityError
@@ -73,19 +73,11 @@ def get_members(role_lookup):
     else:
         raise APIRetrievalError
 
-async def add_users_to_db(user_data):
-
-    #TEST DATA
-    # user_to_add = user_data[1]
-    # user_to_add_2 = {**user_data[1]}
-    # user_to_add_2["id"] = "111111111"
-    # user_to_add_2["username"] = "naughtyuser"
-
-    # print("USER TO ADD", user_to_add)
+async def handle_bulk_import_reconciliation_to_db(user_data, role_data):
 
     async with SessionLocal() as session:
         user_update_results = None
-        #BULK INSERT
+        #BULK INSERT USERS
         try:
             user_update_results = await User.bulk_import(session,user_data)
         except Exception as e:
@@ -93,6 +85,16 @@ async def add_users_to_db(user_data):
 
         if user_update_results:
             print("HERE IS THE RESULT OF THE LATEST IMPORT", user_update_results)
+
+        #BULK UPDATE ROLES
+        role_update_results = None
+        try:
+            role_update_results = await Role.sync_roles(session,role_data)
+            await session.commit()
+        except Exception as e:
+            print("AN ERROR OCCURRED ON BULK UPDATE", e)
+        if role_update_results:
+            print("ROLE SYNC REPORT", role_update_results)
         #INSERT ONE BY ONE
         # for discord_user in user_data:
         #     exsiting_or_inserted_user = None
@@ -110,6 +112,17 @@ async def add_users_to_db(user_data):
 
         #print("INSERTED OR EXISTING USER", exsiting_or_inserted_user)
 
+# async def update_roles_to_db(role_data):
+#     async with SessionLocal() as session:
+#         role_update_results = None
+#         #BULK UPDATE
+#         try:
+#             role_update_results = await Role.sync_roles(session,role_data)
+#             session.commit()
+#         except Exception as e:
+#             print("AN ERROR OCCURRED ON BULK UPDATE", e)
+#         if role_update_results:
+#             print("ROLE SYNC REPORT", role_update_results)
 
 if __name__ == "__main__":
     try:
@@ -132,4 +145,4 @@ if __name__ == "__main__":
         print("An error occurred retrieving the member data", api_error)       
 
     if existing_members:
-        asyncio.run(add_users_to_db(existing_members))
+        asyncio.run(handle_bulk_import_reconciliation_to_db(existing_members, existing_roles))
