@@ -83,7 +83,11 @@ class Role(Base):
         user: "User",
         discord_roles: list[dict],
     ):
-        print("DISCORD ROLES", discord_roles)
+        #For reporting
+        created_roles = []
+        added_roles = []
+        removed_roles = []
+
         discord_ids = [r["discord_id"] for r in discord_roles]
 
         result = await db.execute(
@@ -99,30 +103,36 @@ class Role(Base):
 
             role = role_lookup.get(discord_role["discord_id"])
 
-            print("ROLE BEFORE INSERT", discord_role,role)
-
             if role is None:
-                print("ROLE IS NONE")
                 role = Role(
                     discord_id=discord_role["discord_id"],
                     name=discord_role["name"],
                 )
                 db.add(role)
                 await db.flush()      # obtain primary key
-                print("ROLE AFTER FLUSH", role.id, role.discord_id, role.name)
+                #For logging
+                created_roles.append(role.name)
+                #For lookup on susequent users
                 role_lookup[role.discord_id] = role
                 
             assigned_roles.append(role)
-        print("ASSIGNED ROLES", assigned_roles)
+        #For logging the role updates
+        existing_role_names = {
+            role.name
+            for role in user.roles
+        }
+        new_role_names = {
+            role.name
+            for role in assigned_roles
+        }
+        added_roles = list(new_role_names - existing_role_names)
+        removed_roles = list(existing_role_names - new_role_names)
+        
         user.roles = assigned_roles
-        print(
-            "USER ROLES BEFORE RETURN",
-            [r.name for r in user.roles]
-        )
-    # @classmethod
-    # async def update_user_roles(cls,existing_user: User, discord_roles):
-    #     for role in discord_roles:
-    #         print(f"{existing_user.username} - ROLE", role)
+        return created_roles, {
+            "added_roles": added_roles,
+            "removed_roles": removed_roles,
+        }
 
 class User(Base):
     __tablename__ = "users"
@@ -222,6 +232,7 @@ class User(Base):
         inserted = []
         existing = []
         failed = []
+        new_roles_created = []
 
         for discord_user in users:
 
@@ -235,9 +246,14 @@ class User(Base):
                 existing_user = existing_user.scalar_one_or_none()
 
                 if existing_user is not None:
-                    existing.append(existing_user)
                     #Update roles if the existing user has changed roles
-                    await Role.sync_user_roles(db,existing_user,discord_user["roles"])
+                    created_roles, role_changes = await Role.sync_user_roles(db,existing_user,discord_user["roles"])
+                    print("CREATED ROLES", created_roles)
+                    new_roles_created.extend(created_roles)
+                    existing.append({
+                        "user": existing_user.user_name,
+                        "role_changes": role_changes
+                    })
                     continue
 
                 user = await cls.create_one(
@@ -262,6 +278,7 @@ class User(Base):
             "inserted": inserted,
             "existing": existing,
             "failed": failed,
+            "new roles" : new_roles_created,
         }
 
     @classmethod
