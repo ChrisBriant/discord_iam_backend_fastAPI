@@ -32,6 +32,8 @@ def get_roles():
 
     role_data = requests.get(url, headers=headers)
 
+    print("ROLE DATA FROM API", role_data.status_code)
+
 
     if role_data.status_code == 200:
         #print("ROLE DATA", role_data.json())
@@ -79,14 +81,20 @@ async def handle_bulk_import_reconciliation_to_db(user_data, role_data):
         user_update_results = None
         #BULK INSERT USERS
         try:
-            user_update_results = await User.bulk_import(session,user_data)
+            user_import_results = await User.bulk_import(session,user_data)
         except Exception as e:
             print("AN ERROR OCCURRED ON BULK UPDATE", user_update_results)
 
-        if user_update_results:
-            print("HERE IS THE RESULT OF THE LATEST IMPORT", user_update_results)
+        if user_import_results:
+            print("HERE IS THE RESULT OF THE LATEST IMPORT", user_import_results)
 
-        #BULK UPDATE ROLES
+        #RECONCILIATION - BULK UPDATE USERS
+        #Handle user name changes and users no longer on the discord server are disabled
+        user_update_results = await User.bulk_reconcile(session,user_data)
+        if user_update_results:
+            print("USER RECONCILIATION RESULTS", user_update_results)
+
+        #RECONCILIATION - BULK UPDATE ROLES
         role_update_results = None
         try:
             role_update_results = await Role.sync_roles(session,role_data)

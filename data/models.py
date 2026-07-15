@@ -351,6 +351,91 @@ class User(Base):
         }
 
     @classmethod
+    async def bulk_reconcile(
+        cls,
+        db: AsyncSession,
+        users: list[dict],
+    ) -> dict:
+
+        updated = []
+        disabled = []
+        failed = []
+
+        try:
+            # Create lookup from Discord response
+            discord_users = {
+                user["id"]: user
+                for user in users
+            }
+            # Get all users from database
+            result = await db.execute(
+                select(cls)
+            )
+            database_users = result.scalars().all()
+
+            for db_user in database_users:
+                discord_user = discord_users.get(db_user.discord_id)
+                #
+                # User exists in Discord
+                #
+                if discord_user:
+                    changes = {}
+
+                    if db_user.user_name != discord_user["username"]:
+                        changes["user_name"] = {
+                            "old": db_user.user_name,
+                            "new": discord_user["username"]
+                        }
+                        db_user.user_name = discord_user["username"]
+
+                    if db_user.global_name != discord_user["global_name"]:
+                        changes["global_name"] = {
+                            "old": db_user.global_name,
+                            "new": discord_user["global_name"]
+                        }
+                        db_user.global_name = discord_user["global_name"]
+
+                    if not db_user.enabled:
+                        changes["enabled"] = {
+                            "old": False,
+                            "new": True
+                        }
+                        db_user.enabled = True
+
+                    if changes:
+                        updated.append({
+                            "discord_id": db_user.discord_id,
+                            "changes": changes
+                        })
+                #
+                # User no longer exists in Discord
+                #
+                else:
+                    if db_user.enabled:
+                        db_user.enabled = False
+
+                        disabled.append({
+                            "discord_id": db_user.discord_id,
+                            "username": db_user.user_name
+                        })
+
+            await db.commit()
+
+        except Exception as ex:
+            await db.rollback()
+
+            failed.append({
+                "error": str(ex)
+            })
+
+        return {
+            "updated": updated,
+            "disabled": disabled,
+            "failed": failed,
+        }
+
+
+    @classmethod
     async def get_by_id(cls, db: AsyncSession, user_id: int):
         """
         Retrieve a user by ID with devices and tokens loaded.
