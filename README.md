@@ -77,3 +77,6 @@ The admin system allows:
 - Discord is the source of identity, not system state
 - Database is the source of truth for the application
 - Member sync must be periodic (users change over time)
+
+
+

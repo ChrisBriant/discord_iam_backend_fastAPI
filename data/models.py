@@ -44,6 +44,9 @@ class DatabaseUpdateError(Exception):
 
 #CUSTOM EXCEPTIONS
 
+class RoleNotFoundException(Exception):
+    pass
+
 # class ManagerDoesNotExist(Exception):
 #     pass
 
@@ -62,6 +65,13 @@ user_roles = Table(
     Column("role_id", ForeignKey("roles.id"), primary_key=True),
 )
 
+eligible_roles = Table(
+    "eligible_roles",
+    Base.metadata,
+    Column("user_id", ForeignKey("users.id"), primary_key=True),
+    Column("role_id", ForeignKey("roles.id"), primary_key=True),
+)
+
 class Role(Base):
     __tablename__ = "roles"
 
@@ -73,6 +83,12 @@ class Role(Base):
         "User",
         secondary=user_roles,
         back_populates="roles",
+    )
+
+    eligible_users = relationship(
+        "User",
+        secondary=eligible_roles,
+        back_populates="eligible_roles",
     )
 
 
@@ -203,6 +219,23 @@ class Role(Base):
             "deleted_roles": deleted_roles,
         }
 
+    @classmethod
+    async def get_by_id(cls, db: AsyncSession, role_id: int):
+        """
+        Retrieve a user by ID with devices and tokens loaded.
+        Returns the User object or None if not found.
+        """
+        result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.users),
+                selectinload(cls.eligible_users),
+            )
+            .where(cls.id == role_id)
+        )
+        return result.scalar_one_or_none()
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -222,6 +255,12 @@ class User(Base):
         "Role",
         secondary=user_roles,
         back_populates="users",
+    )
+
+    eligible_roles = relationship(
+        "Role",
+        secondary=eligible_roles,
+        back_populates="eligible_users",
     )
 
     @classmethod
@@ -444,10 +483,8 @@ class User(Base):
         result = await db.execute(
             select(cls)
             .options(
-                selectinload(cls.department),
-                selectinload(cls.manager),
-                selectinload(cls.groups),
-                selectinload(cls.roles)
+                selectinload(cls.roles),
+                selectinload(cls.eligible_roles)
             )
             .where(cls.id == user_id)
         )
@@ -478,7 +515,8 @@ class User(Base):
         result = await db.execute(
             select(cls)
             .options(
-                selectinload(cls.department),
+                selectinload(cls.roles),
+                selectinload(cls.eligible_roles)
             )
             .order_by(func.random())
             .limit(1)
@@ -593,15 +631,153 @@ class User(Base):
             .where(cls.id == user_id))
         return updated_user.scalar_one()
 
+    async def assign_role_as_eligible(
+        self,
+        db: AsyncSession,
+        role_id: int
+    ) -> "User | None":
+        """
+            Make an eligible role assignment to a user 
+            - update the database eligible roles table with the user id and role id
+        """
+        #Get the role
+        role_result = await db.execute(
+            select(Role)
+            .where(Role.id == role_id)
+            .limit(1)
+        )
+        role = role_result.scalar_one_or_none()
+        if not role:
+            raise RoleNotFoundException()
+
+        if role not in self.eligible_roles:
+            self.eligible_roles.append(role)
+
+        await db.flush()
+        await db.commit()
+
+        return self
+    
+    async def remove_eligible_role(
+        self,
+        db: AsyncSession,
+        role_id: int
+    ) -> "User | None":
+        """
+            Make an eligible role assignment to a user 
+            - update the database eligible roles table with the user id and role id
+        """
+        #Get the role
+        role_result = await db.execute(
+            select(Role)
+            .where(Role.id == role_id)
+            .limit(1)
+        )
+        role = role_result.scalar_one_or_none()
+        if not role:
+            raise RoleNotFoundException()
+
+        if role in self.eligible_roles:
+            self.eligible_roles.remove(role)
+
+        await db.flush()
+        await db.commit()
+
+        return self
+
+    async def assign_role_as_active(
+        self,
+        db: AsyncSession,
+        role_id: int
+    ) -> "User | None":
+        """
+            Make an eligible role assignment to a user 
+            - update the database eligible roles table with the user id and role id
+        """
+        #Get the role
+        role_result = await db.execute(
+            select(Role)
+            .where(Role.id == role_id)
+            .limit(1)
+        )
+        role = role_result.scalar_one_or_none()
+        if not role:
+            raise RoleNotFoundException()
+
+        if role not in self.roles:
+            self.roles.append(role)
+
+        await db.flush()
+        await db.commit()
+
+        return self
+    
+    async def remove_active_role(
+        self,
+        db: AsyncSession,
+        role_id: int
+    ) -> "User | None":
+        """
+            Make an eligible role assignment to a user 
+            - update the database eligible roles table with the user id and role id
+        """
+        #Get the role
+        role_result = await db.execute(
+            select(Role)
+            .where(Role.id == role_id)
+            .limit(1)
+        )
+        role = role_result.scalar_one_or_none()
+        if not role:
+            raise RoleNotFoundException()
+
+        if role in self.roles:
+            self.roles.remove(role)
+
+        await db.flush()
+        await db.commit()
+
+        return self
+
+
+async def test_role_eligibility():
+    async with SessionLocal() as session:
+        user = await User.get_by_id(session,6)
+        role = await Role.get_by_id(session,10)
+
+        if user and role:
+            print("USER",user.user_name)
+            print("ROLE", role.name)
+        else:
+            print("User or Role not found")
+            return
+
+        print("ELIGIBLE ROLES")
+        for eligible_role in user.eligible_roles:
+            print(eligible_role.name)
+
+        print("ACTIVE ROLES")
+        for active_role in user.roles:
+            print(active_role.name)
+
+        #TEST ELIGIBLE ASSIGNMENT
+        #await user.assign_role_as_eligible(session,role.id)
+        #TEST REMOVE ELIGIBLE ROLE
+        #await user.remove_eligible_role(session,role.id)
+        #TEST ASSIGN ACTIVE
+        #await user.assign_role_as_active(session,role.id)
+        #TEST REMOVE ACTIVE
+        #await user.remove_active_role(session,role.id)
+
+
+
 
 
 
 
 async def main():
-    #print("Creating Departments")
-    #await create_departments()
-    print("Creating Users")
-    await create_users(1)
+    #TESTING ROLE ELIGIBILITY
+    await test_role_eligibility()
 
 
 if __name__ == "__main__":

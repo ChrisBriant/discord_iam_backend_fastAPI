@@ -3,7 +3,9 @@ from pathlib import Path
 from data.models import User, Role
 from data.db import SessionLocal
 import asyncio
+import logging
 from sqlalchemy.exc import IntegrityError
+from utils.formatting import format_reconciliation_log
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
@@ -16,6 +18,22 @@ if os.path.isfile(dotenv_file):
 
 guild_id = os.environ.get("DISCORD_SERVER_ID")
 bot_token = os.environ.get("DISCORD_BOT_TOKEN")
+
+#For logging
+log_directory = "/var/log/discord-iam"
+os.makedirs(log_directory, exist_ok=True)
+
+logger = logging.getLogger("iam")
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler(
+    f"{log_directory}/reconcile.log"
+)
+formatter = logging.Formatter(
+    "%(asctime)s - %(levelname)s - %(message)s"
+)
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 
 #Custom exception
 class APIRetrievalError(Exception):
@@ -103,6 +121,17 @@ async def handle_bulk_import_reconciliation_to_db(user_data, role_data):
             print("AN ERROR OCCURRED ON BULK UPDATE", e)
         if role_update_results:
             print("ROLE SYNC REPORT", role_update_results)
+        #CREATE SERVER LOGS
+        logger.info(
+            format_reconciliation_log(
+                user_import_results,
+                user_update_results,
+                role_update_results
+            )
+            # f"User Imports = {user_import_results} "
+            # f"User Changes = {user_update_results} "
+            # f"Role Updates = {role_update_results} "
+        )
         #INSERT ONE BY ONE
         # for discord_user in user_data:
         #     exsiting_or_inserted_user = None
