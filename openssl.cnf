@@ -1,0 +1,23 @@
+[req]
+distinguished_name = dn
+req_extensions = req_ext
+x509_extensions = req_ext
+prompt = no
+
+[dn]
+C = GB
+ST = Birmingham
+L = Birmingham
+O = Chris Briant
+CN = localhost
+
+[req_ext]
+subjectAltName = @alt_names
+basicConstraints = CA:FALSE
+keyUsage = digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+
+[alt_names]
+DNS.1 = localhost
+IP.1 = 127.0.0.1
+IP.2 = ::1

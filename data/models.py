@@ -507,6 +507,21 @@ class User(Base):
         return result.scalar_one_or_none()
     
     @classmethod
+    async def get_by_external_id(cls, db: AsyncSession, external_id: str):
+        """
+        Retrieve a user by the id provided by the 3rd party.
+        """
+        result = await db.execute(
+            select(cls)
+            # .options(
+            #     selectinload(cls.devices),
+            #     selectinload(cls.tokens)
+            # )
+            .where(cls.discord_id == external_id)
+        )
+        return result.scalar_one_or_none()
+
+    @classmethod
     async def get_random_user(cls, db: AsyncSession):
         """
         Retrieve a user by username with devices and tokens loaded.
