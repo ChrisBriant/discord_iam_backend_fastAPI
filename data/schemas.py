@@ -1,7 +1,9 @@
 from pydantic import BaseModel, ConfigDict, computed_field
 from typing import Optional
 from datetime import datetime
-from typing import List
+from typing import List, TypeVar, Optional, Generic
+
+T = TypeVar("T")
 
 
 class TokenSchema(BaseModel):
@@ -20,14 +22,41 @@ class UserProfileSchema(BaseModel):
     alias : str
     accepted_terms : bool
 
-class UserSchema(BaseModel):
-    id: int
-    alias: str
+class RoleSchema(BaseModel):
+    id : int
+    discord_id : str
+    name : str
 
     model_config = ConfigDict(from_attributes=True)
+
+class UserSchema(BaseModel):
+    id: int
+    discord_id: str
+    user_name : str
+    global_name : str | None = None
+    created_at : datetime
+    terms_accepted : bool
+    enabled : bool
+    roles : List[RoleSchema]
+    eligible_roles : List[RoleSchema]
+
+    model_config = ConfigDict(from_attributes=True)
+
+# class UserList(BaseModel):
+#     users : List[UserSchema]
 
 class AuthCodeSchema(BaseModel):
     auth_code : str
 
 class RefreshTokenSchema(BaseModel):
     token : str | None
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    data: List[T]
+    next_page: Optional[str]
+    prev_page: Optional[str]
+    total: int
+    total_pages: int
+    page: int
+    page_size: int

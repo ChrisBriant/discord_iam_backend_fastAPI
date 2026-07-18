@@ -70,6 +70,8 @@ eligible_roles = Table(
     Base.metadata,
     Column("user_id", ForeignKey("users.id"), primary_key=True),
     Column("role_id", ForeignKey("roles.id"), primary_key=True),
+    Column("start_date",DateTime(timezone=True), nullable=False),
+    Column("end_date",DateTime(timezone=True), nullable=False),
 )
 
 class Role(Base):
@@ -537,6 +539,32 @@ class User(Base):
             .limit(1)
         )
         return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_all_users(cls, db: AsyncSession, page: int = 1 , page_size: int = 10) :
+        """
+            Get all the users
+        """
+
+        total_result = await db.execute(
+            select(func.count()).select_from(cls)
+        )
+        total = total_result.scalar_one()
+
+        #Get the paginated sessions
+        offset = (page - 1) * page_size
+
+        result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.roles),
+                selectinload(cls.eligible_roles)
+            )
+            .offset(offset)
+            .limit(page_size)
+        )
+
+        return result.scalars().all(), total
 
 
     @classmethod
