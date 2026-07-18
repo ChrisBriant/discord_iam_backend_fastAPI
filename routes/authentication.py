@@ -13,7 +13,7 @@ from providers.provider_registry import get_provider
 from data.models import User
 from data.db import SessionLocal
 import uuid
-from .token import (
+from authentication.token import (
     obtain_jwt_pair, 
     refresh_jwt_pair, 
     validate_jwt_token, 

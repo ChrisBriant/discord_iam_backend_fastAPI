@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from routes.auth import router as auth_router
+from routes.authentication import router as auth_router
+from routes.authorisation import router as authorisation_router
 import os
 import dotenv
 
@@ -16,7 +17,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173","https://id-broker.chrisbriant.uk"],  # React app origin
+    allow_origins=["http://localhost:5173"],  # React app origin
     allow_credentials=True,                   # must be True for cookies
     allow_methods=["*"],
     allow_headers=["*"],
@@ -25,3 +26,4 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(auth_router, prefix="/auth")
+app.include_router(authorisation_router, prefix="/authorisation")

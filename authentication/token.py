@@ -8,8 +8,8 @@ from typing import Optional
 
 # Settings for JWT
 ALGORITHM = "HS256"             # Use HS256 or any preferred algorithm
-ACCESS_TOKEN_LIFETIME = 60      # Token lifetime in seconds
-REFRESH_TOKEN_LIFETIME = 120
+ACCESS_TOKEN_LIFETIME = 7200      # Token lifetime in seconds
+REFRESH_TOKEN_LIFETIME = 14400
 
 
 
@@ -156,3 +156,5 @@ async def validate_jwt(request: Request):
         raise HTTPException(status_code=401, detail="Invalid token.")
 
     return payload
+
+
