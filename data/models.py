@@ -224,6 +224,31 @@ class Role(Base):
         )
         return result.scalar_one_or_none()
 
+    @classmethod
+    async def get_all(cls, db: AsyncSession, page: int = 1 , page_size: int = 10):
+        """
+            Get all the roles
+        """
+
+        total_result = await db.execute(
+            select(func.count()).select_from(cls)
+        )
+        total = total_result.scalar_one()
+
+        #Get the paginated sessions
+        offset = (page - 1) * page_size
+
+        result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.users),
+                selectinload(cls.eligible_users_association).selectinload(EligibleRole.user)
+            )
+            .offset(offset)
+            .limit(page_size)
+        )
+
+        return result.scalars().all(), total
 
 class User(Base):
     __tablename__ = "users"
@@ -676,10 +701,6 @@ class User(Base):
             - default the start date to the current date time
             - default the end date to one day in the future
         """
-
-        #TEST ELIGIBLE ASSOCIATIONS DATA
-        # result = await db.execute(select(self.eligible_roles_association))
-        # print("ROLE ASSOCIATIONS",result.all())
         #Get the role
         role_result = await db.execute(
             select(Role)

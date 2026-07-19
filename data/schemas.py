@@ -29,6 +29,35 @@ class RoleSchema(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class UserSchemaBasic(BaseModel):
+    id: int
+    discord_id: str
+    user_name : str
+    global_name : str | None = None
+    created_at : datetime
+    terms_accepted : bool
+    enabled : bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+class EligibleUserSchema(BaseModel):
+    start_date: datetime
+    end_date: datetime
+    # This reads the nested .user attribute that selectinload fetched
+    user: UserSchemaBasic 
+
+    model_config = ConfigDict(from_attributes=True)
+
+class RoleSchemaWithUsers(BaseModel):
+    id : int
+    discord_id : str
+    name : str
+    users : List[UserSchemaBasic]
+    eligible_users_association : List[EligibleUserSchema]
+
+    model_config = ConfigDict(from_attributes=True)
+
 class EligibleRoleSchema(BaseModel):
     #id : int
     # discord_id : str
