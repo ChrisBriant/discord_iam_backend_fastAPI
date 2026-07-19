@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, computed_field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, TypeVar, Optional, Generic
 
 T = TypeVar("T")
@@ -28,6 +28,12 @@ class RoleSchema(BaseModel):
     name : str
 
     model_config = ConfigDict(from_attributes=True)
+
+class RoleAssignmentSchema(BaseModel):
+    role_id : int
+    user_id : int
+    start_date : datetime = datetime.now()
+    end_date : datetime = datetime.now() + timedelta(days=1)
 
 
 class UserSchemaBasic(BaseModel):

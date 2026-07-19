@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Depends, Response, Query
+from fastapi import APIRouter, HTTPException, Request, Depends, Response, Query, status
 from typing import Optional
 from fastapi.responses import RedirectResponse
 from providers.provider_registry import get_provider
@@ -10,7 +10,7 @@ from providers.provider_registry import get_provider
 #     validate_auth_code,
 #     update_terms_accepted,
 # )
-from data.models import User, Role
+from data.models import User, Role, RoleNotFoundException
 from data.db import SessionLocal
 import uuid
 from authentication.token import (
@@ -29,7 +29,8 @@ from data.schemas import (
     PaginatedResponse,
     UserSchema,
     #EligibleRoleSchema,
-    RoleSchemaWithUsers
+    RoleSchemaWithUsers,
+    RoleAssignmentSchema
 )
 from math import ceil
 from typing import List
@@ -151,3 +152,22 @@ async def get_roles(
             "page": page,
             "page_size": page_size
         }
+    
+
+@router.post("/setroleaseligible", dependencies=[Depends(RequirePermission("User Manager"))], status_code=status.HTTP_201_CREATED)
+async def set_eligible_role_association(
+        #request: Request,
+        role_assignment : RoleAssignmentSchema,
+    ):
+    print(role_assignment.role_id, role_assignment.user_id)
+    async with SessionLocal() as session:
+        #Get the user
+        try:
+            user = await User.get_by_id(session,user_id=role_assignment.user_id)
+            await user.assign_role_as_eligible(session,role_assignment.role_id)
+        except RoleNotFoundException as role_ex:
+            raise HTTPException(status_code=404, detail="Role does not exist")
+        except Exception as e:
+            if not user:
+                raise HTTPException(status_code=404, detail="User does not exist")
+    return {"status": "success", "message": "Role assignment completed"}
