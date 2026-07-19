@@ -27,14 +27,38 @@ import asyncio
 import random
 from datetime import datetime, timedelta, timezone
 import secrets
+#from services.auth_exceptions import TokenExpired, TokenNotFound, TokenUsed, DeviceAlreadyRegistered
+#from services.auth import decode_public_key
+
 
 class DatabaseUpdateError(Exception):
     pass
 
+
+
+#
+# Association Tables
+#
+
+
+
+
+#CUSTOM EXCEPTIONS
+
 class RoleNotFoundException(Exception):
     pass
 
-# Pure many-to-many helper table (no extra data columns, fine as a Table object)
+# class ManagerDoesNotExist(Exception):
+#     pass
+
+# class DepartmentDoesNotExist(Exception):
+#     pass
+
+
+#
+# Role Model
+#
+
 user_roles = Table(
     "user_roles",
     Base.metadata,
@@ -42,19 +66,14 @@ user_roles = Table(
     Column("role_id", ForeignKey("roles.id"), primary_key=True),
 )
 
-# REFACTORED: Turned into an Association Object to support extra columns
-class EligibleRole(Base):
-    __tablename__ = "eligible_roles"
-
-    user_id = Column(ForeignKey("users.id"), primary_key=True)
-    role_id = Column(ForeignKey("roles.id"), primary_key=True)
-    start_date = Column(DateTime(timezone=True), nullable=False)
-    end_date = Column(DateTime(timezone=True), nullable=False)
-
-    # Bidirectional relationships to the parent models
-    user = relationship("User", back_populates="eligible_roles_association")
-    role = relationship("Role", back_populates="eligible_users_association")
-
+eligible_roles = Table(
+    "eligible_roles",
+    Base.metadata,
+    Column("user_id", ForeignKey("users.id"), primary_key=True),
+    Column("role_id", ForeignKey("roles.id"), primary_key=True),
+    Column("start_date",DateTime(timezone=True), nullable=False),
+    Column("end_date",DateTime(timezone=True), nullable=False),
+)
 
 class Role(Base):
     __tablename__ = "roles"
@@ -63,23 +82,18 @@ class Role(Base):
     discord_id = Column(String, nullable=False, unique=True)
     name = Column(String, nullable=False, unique=True)
 
-    # Standard Many-to-Many
     users = relationship(
         "User",
         secondary=user_roles,
         back_populates="roles",
     )
 
-    # Refactored for Association Object
-    eligible_users_association = relationship(
-        "EligibleRole",
-        back_populates="role",
-        cascade="all, delete-orphan"
+    eligible_users = relationship(
+        "User",
+        secondary="eligible_roles",
+        back_populates="eligible_roles",
     )
 
-    # Optional proxy property: lets you access Role objects directly via role.eligible_users
-    # requires: from sqlalchemy.ext.associationproxy import association_proxy
-    # eligible_users = association_proxy("eligible_users_association", "user")
 
     @classmethod
     async def sync_user_roles(
@@ -218,7 +232,7 @@ class Role(Base):
             select(cls)
             .options(
                 selectinload(cls.users),
-                selectinload(cls.eligible_users_association),
+                selectinload(cls.eligible_users),
             )
             .where(cls.id == role_id)
         )
@@ -236,23 +250,21 @@ class User(Base):
     terms_accepted = Column(Boolean, nullable=False, default=False)
     enabled = Column(Boolean, nullable=False, default=False)
 
-    # Standard Many-to-Many
+    #
+    # Roles
+    #
+
     roles = relationship(
         "Role",
         secondary=user_roles,
         back_populates="users",
     )
 
-    # Refactored for Association Object
-    eligible_roles_association = relationship(
-        "EligibleRole",
-        back_populates="user",
-        cascade="all, delete-orphan"
+    eligible_roles = relationship(
+        "Role",
+        secondary="eligible_roles",
+        back_populates="eligible_users",
     )
-
-    # Optional proxy property: lets you access Role objects directly via user.eligible_roles
-    # requires: from sqlalchemy.ext.associationproxy import association_proxy
-    # eligible_roles = association_proxy("eligible_roles_association", "role")
 
     @classmethod
     async def create_one(
@@ -475,7 +487,7 @@ class User(Base):
             select(cls)
             .options(
                 selectinload(cls.roles),
-                selectinload(cls.eligible_roles_association).selectinload(EligibleRole.role)
+                selectinload(cls.eligible_roles)
             )
             .where(cls.id == user_id)
         )
@@ -522,7 +534,7 @@ class User(Base):
             select(cls)
             .options(
                 selectinload(cls.roles),
-                selectinload(cls.eligible_roles_association).selectinload(EligibleRole.role)
+                selectinload(cls.eligible_roles)
             )
             .order_by(func.random())
             .limit(1)
@@ -547,7 +559,7 @@ class User(Base):
             select(cls)
             .options(
                 selectinload(cls.roles),
-                selectinload(cls.eligible_roles_association).selectinload(EligibleRole.role)
+                selectinload(cls.eligible_roles)
             )
             .offset(offset)
             .limit(page_size)
@@ -678,8 +690,8 @@ class User(Base):
         """
 
         #TEST ELIGIBLE ASSOCIATIONS DATA
-        # result = await db.execute(select(self.eligible_roles_association))
-        # print("ROLE ASSOCIATIONS",result.all())
+        result = await db.execute(select(eligible_roles))
+        print("ROLE ASSOCIATIONS",result.all())
         #Get the role
         role_result = await db.execute(
             select(Role)
@@ -689,21 +701,17 @@ class User(Base):
         role = role_result.scalar_one_or_none()
         if not role:
             raise RoleNotFoundException()
-        
-        existing_eligible_roles = [ eligible_role.role for eligible_role in self.eligible_roles_association]
 
-        if role not in existing_eligible_roles:
+        if role not in self.eligible_roles:
             #self.eligible_roles.append(role)
-            print("I AM INSERTING AN ELIGIBLE ROLE", role, existing_eligible_roles)
             await db.execute(
-                insert(EligibleRole).values(
+                insert(eligible_roles).values(
                     user_id=self.id,
                     role_id=role_id,
                     start_date=start_date,
                     end_date=end_date
                 )
             )
-            db.expire(self, ['eligible_roles_association'])
 
         await db.flush()
         await db.commit()
@@ -711,31 +719,31 @@ class User(Base):
         return self
     
     async def remove_eligible_role(
-            self,
-            db: AsyncSession,
-            role_id: int
-        ) -> "User":
-            """
-            Removes an eligible role assignment from a user.
-            """
-            # Find the specific eligibility record matching the role_id
-            target_eligibility = None
-            for eligibility in self.eligible_roles_association:
-                if eligibility.role_id == role_id:
-                    target_eligibility = eligibility
-                    break
+        self,
+        db: AsyncSession,
+        role_id: int
+    ) -> "User | None":
+        """
+            Make an eligible role assignment to a user 
+            - update the database eligible roles table with the user id and role id
+        """
+        #Get the role
+        role_result = await db.execute(
+            select(Role)
+            .where(Role.id == role_id)
+            .limit(1)
+        )
+        role = role_result.scalar_one_or_none()
+        if not role:
+            raise RoleNotFoundException()
 
-            # If it exists, remove it from the list. 
-            # The 'delete-orphan' cascade deletes the row from the DB.
-            if target_eligibility:
-                self.eligible_roles_association.remove(target_eligibility)
-                db.add(self)  # Track the change in the session
-            else:
-                raise RoleNotFoundException("The role could not be deleted because it could not be found")
-                pass
+        if role in self.eligible_roles:
+            self.eligible_roles.remove(role)
 
-            await db.commit()
-            return self
+        await db.flush()
+        await db.commit()
+
+        return self
 
     async def assign_role_as_active(
         self,
@@ -794,7 +802,7 @@ class User(Base):
 
 async def test_role_eligibility():
     async with SessionLocal() as session:
-        user = await User.get_by_id(session,1)
+        user = await User.get_by_id(session,6)
         role = await Role.get_by_id(session,10)
 
         if user and role:
@@ -805,8 +813,8 @@ async def test_role_eligibility():
             return
 
         print("ELIGIBLE ROLES")
-        for eligible_role in user.eligible_roles_association:
-            print(eligible_role.role.name)
+        for eligible_role in user.eligible_roles:
+            print(eligible_role.name)
 
         print("ACTIVE ROLES")
         for active_role in user.roles:

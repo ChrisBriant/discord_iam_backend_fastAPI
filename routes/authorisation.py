@@ -27,7 +27,8 @@ from authentication.token import (
 from authorisation.permissions import RequirePermission
 from data.schemas import (
     PaginatedResponse,
-    UserSchema
+    UserSchema,
+    EligibleRoleSchema
 )
 from math import ceil
 from typing import List
@@ -63,6 +64,40 @@ async def get_users(
             page,
             page_size
         )
+
+        # #CHECK ELIGIBLE ROLES
+        # for user_item in all_users:
+        #     #print("USER ELIGIBLE ROLES", user_item.eligible_roles)
+        #     for eligible_role in user_item.eligible_roles:
+        #         pass
+        #         # # elig_role = EligibleRoleSchema.model_validate(eligible_role)
+        #         # # print(elig_role.__dict__)
+        #         # #print(eligible_role.__dict__)
+        #         # print("USER ELIGIBLE ROLES", user_item.eligible_roles)
+
+        #         # user_schema = UserSchema.model_validate(user_item)
+
+        #         # print("PYDANTIC ELIGIBLE ROLES", user_schema.eligible_roles)
+        #     print(
+        #         "USER",
+        #         user_item.id,
+        #         user_item.user_name,
+        #         "ELIGIBLE",
+        #         [r.name for r in user_item.eligible_roles]
+        #     )
+
+        #     user_schema = UserSchema.model_validate(user_item)
+
+        #     print(
+        #         "SCHEMA",
+        #         user_schema.id,
+        #         user_schema.user_name,
+        #         "ELIGIBLE",
+        #         [r.name for r in user_schema.eligible_roles]
+        #     )
+
+        print("ELIGIBLE ROLES", all_users[5].eligible_roles_association, all_users[5].id)
+
         all_users_result = [UserSchema.model_validate(u) for u in all_users ]
 
         total_pages = ceil(total_users / page_size)
@@ -84,6 +119,8 @@ async def get_users(
                     page_size=page_size
                 )
             )     
+
+        print("DUMP", all_users_result[0].model_dump())
 
         return {
             "data": all_users_result,

@@ -29,6 +29,16 @@ class RoleSchema(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class EligibleRoleSchema(BaseModel):
+    #id : int
+    # discord_id : str
+    # name : str
+    role : RoleSchema
+    start_date : datetime
+    end_date : datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 class UserSchema(BaseModel):
     id: int
     discord_id: str
@@ -38,7 +48,7 @@ class UserSchema(BaseModel):
     terms_accepted : bool
     enabled : bool
     roles : List[RoleSchema]
-    eligible_roles : List[RoleSchema]
+    eligible_roles_association : List[EligibleRoleSchema]
 
     model_config = ConfigDict(from_attributes=True)
 
