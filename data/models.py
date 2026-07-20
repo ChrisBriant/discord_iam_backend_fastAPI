@@ -347,6 +347,65 @@ class User(Base):
 
 
     @classmethod
+    async def remove_expired_roles(
+        cls,
+        db: AsyncSession,
+        users: list[dict],
+    ) -> dict:
+
+        user_updated_roles = []
+        user_updated_role_errors = []
+
+        for discord_user in users:
+            try:
+                existing_user = await db.execute(
+                    select(cls)
+                    .options(
+                        selectinload(User.roles),
+                        selectinload(User.eligible_roles_association).selectinload(EligibleRole.role)
+                    )
+                    .where(cls.discord_id == discord_user["id"])
+                )
+
+                existing_user = existing_user.scalar_one_or_none()
+                if existing_user is not None:
+                    #Check eligible roles against active roles
+                    print("Active Roles", existing_user.roles)
+                    #Filter the eligible roles
+                    active_eligible_roles =  [ eligible_role.role for eligible_role in existing_user.eligible_roles_association if datetime.now(timezone.utc) < eligible_role.end_date ]
+                    expired_eligible_roles = [ eligible_role.role for eligible_role in existing_user.eligible_roles_association if datetime.now(timezone.utc) > eligible_role.end_date ]
+                    print("Eligible Roles", active_eligible_roles)
+                    print("Expired eligible roles", expired_eligible_roles)
+                    new_active_roles = [active_role for active_role in existing_user.roles if active_role in active_eligible_roles]
+                    print("THESE ARE THE NEW ROLE ASSIGNMENTS", new_active_roles)
+                    #Update the database
+                    existing_user.roles = new_active_roles
+                    #Report output
+                    user_updated_roles.append({
+                        "id" : existing_user.id,
+                        "discord_id" : existing_user.discord_id,
+                        "roles" : [ {
+                            "id" : role.id,
+                            "name" : role.name,
+                            "discord_id" : role.discord_id
+                        } for role in new_active_roles ]
+                    })
+                    
+
+            except Exception as ex:
+                user_updated_role_errors.append({
+                    "id" : existing_user.id,
+                    "discord_id" : existing_user.discord_id,
+                    "error" : ex
+                })
+                print(f"Error processing user roles for {discord_user["username"]}, id= {discord_user["id"]}", ex)
+            await db.commit()
+            print("Results", user_updated_roles)
+            print("Errors",user_updated_role_errors )
+            return user_updated_roles, user_updated_role_errors 
+
+
+    @classmethod
     async def bulk_import(
         cls,
         db: AsyncSession,

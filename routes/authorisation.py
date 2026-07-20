@@ -162,12 +162,57 @@ async def set_eligible_role_association(
     print(role_assignment.role_id, role_assignment.user_id)
     async with SessionLocal() as session:
         #Get the user
+        user = None
         try:
             user = await User.get_by_id(session,user_id=role_assignment.user_id)
-            await user.assign_role_as_eligible(session,role_assignment.role_id)
+            await user.assign_role_as_eligible(session,role_assignment.role_id,start_date=role_assignment.start_date,end_date=role_assignment.end_date)
+        except RoleNotFoundException as role_ex:
+            raise HTTPException(status_code=404, detail="Role does not exist")
+        except Exception as e:
+            print("Error", e)
+            if not user:
+                raise HTTPException(status_code=404, detail="User does not exist")
+        #TO DO - Needs to return an updated user object
+    return {"status": "success", "message": "Role assignment completed"}
+
+
+@router.post("/removeeligiblerole", dependencies=[Depends(RequirePermission("User Manager"))], status_code=status.HTTP_201_CREATED)
+async def remove_eligible_role_association(
+        role_assignment : RoleAssignmentSchema,
+    ):
+    print(role_assignment.role_id, role_assignment.user_id)
+    async with SessionLocal() as session:
+        #Get the user
+        try:
+            user = await User.get_by_id(session,user_id=role_assignment.user_id)
+            await user.remove_eligible_role(session,role_assignment.role_id)
         except RoleNotFoundException as role_ex:
             raise HTTPException(status_code=404, detail="Role does not exist")
         except Exception as e:
             if not user:
                 raise HTTPException(status_code=404, detail="User does not exist")
+        #TO DO - Needs to return an updated user object
     return {"status": "success", "message": "Role assignment completed"}
+
+
+
+# @router.post("/activaterole", status_code=status.HTTP_201_CREATED)
+# async def activate_eligible_role(
+#     role_id : int,
+#     user = Depends(IsEligble("User Manager"))
+# ):
+#     """
+#         Check the role is eligible and set as an active role if so.
+#     """
+#     #TODO - Role reconciliation needs to remove expired role assignments
+#     pass
+
+
+# @router.post("/updateroleassignment", status_code=status.HTTP_201_CREATED)
+# async def update_eligible_role(
+#     role_assignment : RoleAssignmentSchema,
+#     user = Depends(IsEligble("User Manager"))
+# ):
+    """
+        Update the eligible role assignment
+    """

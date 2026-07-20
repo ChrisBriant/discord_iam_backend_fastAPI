@@ -60,6 +60,39 @@ def get_roles():
     else:
         raise APIRetrievalError
 
+
+def get_user_roles(user_discord_id):
+    url = f"https://discord.com/api/v10/guilds/{guild_id}/members/{user_discord_id}"
+
+    headers = {
+        "Authorization": f"Bot {bot_token}"
+    }
+
+    result = requests.get(url, headers=headers)
+
+    if result.status_code == 200:
+        data = result.json() 
+        return data["roles"]
+    else:
+        print("STATUS CODE", result.status_code, result.json(), url)
+        raise APIRetrievalError
+    
+
+def delete_user_role(user_discord_id,role_id):
+    url = f"https://discord.com/api/v10//guilds/{guild_id}/members/{user_discord_id}/roles/{role_id}"
+
+    headers = {
+        "Authorization": f"Bot {bot_token}"
+    }
+
+    result = requests.delete(url, headers=headers)
+
+    if result.status_code == 204: 
+        return
+    else:
+        print("STATUS CODE", result.status_code, result.json(), url)
+        raise APIRetrievalError("STATUS CODE", result.status_code, result.json(), url)
+
 def get_members(role_lookup):
 
     url = f"https://discord.com/api/v10/guilds/{guild_id}/members"
@@ -93,73 +126,81 @@ def get_members(role_lookup):
     else:
         raise APIRetrievalError
 
+def update_role_membership(user_data):
+    error_log = []
+    success_log = []
+
+    for discord_user in user_data:
+        user_role_data = get_user_roles(discord_user["discord_id"])
+        print("USER ROLE DATA", user_role_data)
+        allowed_roles = [ role["discord_id"] for role in discord_user["roles"]]
+        for discord_role in user_role_data:
+            try:
+                if discord_role not in allowed_roles:
+                    delete_user_role(discord_user["discord_id"],discord_role)
+                    success_log.append({
+                        "discord_id" : discord_user["discord_id"],
+                        "discord_role_id" : discord_role,
+                        "status" : "DELETE" 
+                    })
+            except APIRetrievalError as err:
+                error_log.append({
+                    "discord_id" : discord_user["discord_id"],
+                    "error" : err
+                })
+    print("ERRORS", error_log)
+    print("SUCCESS", success_log)
+
+
 async def handle_bulk_import_reconciliation_to_db(user_data, role_data):
 
     async with SessionLocal() as session:
-        user_update_results = None
-        #BULK INSERT USERS
+        #UPDATE ROLE ASSIGNMENTS BASED ON eligibility
         try:
-            user_import_results = await User.bulk_import(session,user_data)
+            #user_role_update_results, user_role_update_errors = await User.remove_expired_roles(session,user_data)
+            user_role_update_results = [{'id': 1, 'discord_id': '1065891826361434133', 'roles': [{'id': 10, 'name': 'User Manager', 'discord_id': '1526419413098561718'}]}]
         except Exception as e:
-            print("AN ERROR OCCURRED ON BULK UPDATE", user_update_results)
+            print("AN ERROR OCCURRED ON UPDATING ROLE ASSIGNMENTS", user_role_update_results)
+        # UPDATE IN DISCORD
+        update_role_membership(user_role_update_results)
 
-        if user_import_results:
-            print("HERE IS THE RESULT OF THE LATEST IMPORT", user_import_results)
+        # #BULK INSERT USERS
+        # user_update_results = None
+        # try:
+        #     user_import_results = await User.bulk_import(session,user_data)
+        # except Exception as e:
+        #     print("AN ERROR OCCURRED ON BULK UPDATE", user_update_results)
 
-        #RECONCILIATION - BULK UPDATE USERS
-        #Handle user name changes and users no longer on the discord server are disabled
-        user_update_results = await User.bulk_reconcile(session,user_data)
-        if user_update_results:
-            print("USER RECONCILIATION RESULTS", user_update_results)
+        # if user_import_results:
+        #     print("HERE IS THE RESULT OF THE LATEST IMPORT", user_import_results)
+
+        # #RECONCILIATION - BULK UPDATE USERS
+        # #Handle user name changes and users no longer on the discord server are disabled
+        # user_update_results = await User.bulk_reconcile(session,user_data)
+        # if user_update_results:
+        #     print("USER RECONCILIATION RESULTS", user_update_results)
 
         #RECONCILIATION - BULK UPDATE ROLES
-        role_update_results = None
-        try:
-            role_update_results = await Role.sync_roles(session,role_data)
-            await session.commit()
-        except Exception as e:
-            print("AN ERROR OCCURRED ON BULK UPDATE", e)
-        if role_update_results:
-            print("ROLE SYNC REPORT", role_update_results)
-        #CREATE SERVER LOGS
-        logger.info(
-            format_reconciliation_log(
-                user_import_results,
-                user_update_results,
-                role_update_results
-            )
+        # role_update_results = None
+        # try:
+        #     role_update_results = await Role.sync_roles(session,role_data)
+        #     await session.commit()
+        # except Exception as e:
+        #     print("AN ERROR OCCURRED ON BULK UPDATE", e)
+        # if role_update_results:
+        #     print("ROLE SYNC REPORT", role_update_results)
+        # #CREATE SERVER LOGS
+        # logger.info(
+        #     format_reconciliation_log(
+        #         user_import_results,
+        #         user_update_results,
+        #         role_update_results
+        #     )
             # f"User Imports = {user_import_results} "
             # f"User Changes = {user_update_results} "
             # f"Role Updates = {role_update_results} "
-        )
-        #INSERT ONE BY ONE
-        # for discord_user in user_data:
-        #     exsiting_or_inserted_user = None
+        #)
 
-        #     try:
-        #         await User.create_one(
-        #             session,
-        #             discord_user['id'], 
-        #             discord_user['username'],
-        #             discord_user['global_name'],
-        #             roles= discord_user['roles']
-        #         )
-        #     except Exception as e:
-        #         print("DAABASE ERROR", e)
-
-        #print("INSERTED OR EXISTING USER", exsiting_or_inserted_user)
-
-# async def update_roles_to_db(role_data):
-#     async with SessionLocal() as session:
-#         role_update_results = None
-#         #BULK UPDATE
-#         try:
-#             role_update_results = await Role.sync_roles(session,role_data)
-#             session.commit()
-#         except Exception as e:
-#             print("AN ERROR OCCURRED ON BULK UPDATE", e)
-#         if role_update_results:
-#             print("ROLE SYNC REPORT", role_update_results)
 
 if __name__ == "__main__":
     try:
