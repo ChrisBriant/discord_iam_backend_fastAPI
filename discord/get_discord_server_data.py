@@ -93,6 +93,23 @@ def delete_user_role(user_discord_id,role_id):
         print("STATUS CODE", result.status_code, result.json(), url)
         raise APIRetrievalError("STATUS CODE", result.status_code, result.json(), url)
 
+def add_user_role(user_discord_id,role_id):
+    url = f"https://discord.com/api/v10//guilds/{guild_id}/members/{user_discord_id}/roles/{role_id}"
+
+    headers = {
+        "Authorization": f"Bot {bot_token}"
+    }
+
+    result = requests.put(url, headers=headers)
+
+    if result.status_code == 204: 
+        return
+    else:
+        print("STATUS CODE", result.status_code, result.json(), url)
+        raise APIRetrievalError("STATUS CODE", result.status_code, result.json(), url)
+
+
+
 def get_members(role_lookup):
 
     url = f"https://discord.com/api/v10/guilds/{guild_id}/members"
@@ -134,6 +151,8 @@ def update_role_membership(user_data):
         user_role_data = get_user_roles(discord_user["discord_id"])
         print("USER ROLE DATA", user_role_data)
         allowed_roles = [ role["discord_id"] for role in discord_user["roles"]]
+        print("ALLOWED ROLES", allowed_roles)
+        #Delete role assignments that are not allowed
         for discord_role in user_role_data:
             try:
                 if discord_role not in allowed_roles:
@@ -148,6 +167,21 @@ def update_role_membership(user_data):
                     "discord_id" : discord_user["discord_id"],
                     "error" : err
                 })
+        #Add allowed role assignments
+        for discord_role in allowed_roles:
+            try:
+                add_user_role(discord_user["discord_id"],discord_role)
+                success_log.append({
+                    "discord_id" : discord_user["discord_id"],
+                    "discord_role_id" : discord_role,
+                    "status" : "ASSIGNED" 
+                })
+            except APIRetrievalError as err:
+                error_log.append({
+                    "discord_id" : discord_user["discord_id"],
+                    "error" : err
+                })
+        
     print("ERRORS", error_log)
     print("SUCCESS", success_log)
 
@@ -158,7 +192,9 @@ async def handle_bulk_import_reconciliation_to_db(user_data, role_data):
         #UPDATE ROLE ASSIGNMENTS BASED ON eligibility
         try:
             #user_role_update_results, user_role_update_errors = await User.remove_expired_roles(session,user_data)
-            user_role_update_results = [{'id': 1, 'discord_id': '1065891826361434133', 'roles': [{'id': 10, 'name': 'User Manager', 'discord_id': '1526419413098561718'}]}]
+            user_role_update_results = [{'id': 1, 'discord_id': '1065891826361434133', 'roles': [{'id': 10, 'name': 'User Manager', 'discord_id': '1526419413098561718'}]},
+                                        {'id': 1, 'discord_id': '1526484437724958760', 'roles': [{'id': 10, 'name': 'User Manager', 'discord_id': '1526419413098561718'}]}
+                                        ]
         except Exception as e:
             print("AN ERROR OCCURRED ON UPDATING ROLE ASSIGNMENTS", user_role_update_results)
         # UPDATE IN DISCORD

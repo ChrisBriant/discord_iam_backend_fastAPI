@@ -186,7 +186,8 @@ class Role(Base):
 
                     existing_role.name = discord_role["name"]
 
-
+            #Add new discord role
+            print ("DISCORD ROLE", discord_role,existing_roles)
         # Find roles removed from Discord
         for existing_role in existing_roles:
 
