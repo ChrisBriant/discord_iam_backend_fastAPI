@@ -184,6 +184,7 @@ def update_role_membership(user_data):
         
     print("ERRORS", error_log)
     print("SUCCESS", success_log)
+    return error_log, success_log
 
 
 async def handle_bulk_import_reconciliation_to_db(user_data, role_data):
@@ -198,44 +199,45 @@ async def handle_bulk_import_reconciliation_to_db(user_data, role_data):
         except Exception as e:
             print("AN ERROR OCCURRED ON UPDATING ROLE ASSIGNMENTS", user_role_update_results)
         # UPDATE IN DISCORD
-        update_role_membership(user_role_update_results)
+        errors, successes = update_role_membership(user_role_update_results)
+
+        user_role_reconciliation_log = {
+            "user_role_reconciliation" : {
+                "successful_updates" : successes,
+                "errors" : errors
+            }
+        }
 
         # #BULK INSERT USERS
-        # user_update_results = None
-        # try:
-        #     user_import_results = await User.bulk_import(session,user_data)
-        # except Exception as e:
-        #     print("AN ERROR OCCURRED ON BULK UPDATE", user_update_results)
+        user_update_results = None
+        try:
+            user_import_results = await User.bulk_import(session,user_data)
+        except Exception as e:
+            print("AN ERROR OCCURRED ON BULK UPDATE", user_update_results)
 
-        # if user_import_results:
-        #     print("HERE IS THE RESULT OF THE LATEST IMPORT", user_import_results)
+        if user_import_results:
+            print("HERE IS THE RESULT OF THE LATEST IMPORT", user_import_results)
 
-        # #RECONCILIATION - BULK UPDATE USERS
-        # #Handle user name changes and users no longer on the discord server are disabled
-        # user_update_results = await User.bulk_reconcile(session,user_data)
-        # if user_update_results:
-        #     print("USER RECONCILIATION RESULTS", user_update_results)
+        #RECONCILIATION - BULK UPDATE USERS
+        #Handle user name changes and users no longer on the discord server are disabled
+        user_update_results = await User.bulk_reconcile(session,user_data)
+        if user_update_results:
+            print("USER RECONCILIATION RESULTS", user_update_results)
 
         #RECONCILIATION - BULK UPDATE ROLES
-        # role_update_results = None
-        # try:
-        #     role_update_results = await Role.sync_roles(session,role_data)
-        #     await session.commit()
-        # except Exception as e:
-        #     print("AN ERROR OCCURRED ON BULK UPDATE", e)
-        # if role_update_results:
-        #     print("ROLE SYNC REPORT", role_update_results)
+        role_update_results = None
+        try:
+            role_update_results = await Role.sync_roles(session,role_data)
+            await session.commit()
+        except Exception as e:
+            print("AN ERROR OCCURRED ON BULK UPDATE", e)
+        if role_update_results:
+            print("ROLE SYNC REPORT", role_update_results)
         # #CREATE SERVER LOGS
-        # logger.info(
-        #     format_reconciliation_log(
-        #         user_import_results,
-        #         user_update_results,
-        #         role_update_results
-        #     )
-            # f"User Imports = {user_import_results} "
-            # f"User Changes = {user_update_results} "
-            # f"Role Updates = {role_update_results} "
-        #)
+        logger.info("User Role Updates = %s", user_role_reconciliation_log)
+        logger.info("User Imports = %s", user_import_results)
+        logger.info("User Changes = %s", user_update_results)
+        logger.info("Role Updates = %s", role_update_results)
 
 
 if __name__ == "__main__":

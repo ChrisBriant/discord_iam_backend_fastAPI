@@ -149,6 +149,7 @@ class Role(Base):
 
         renamed_roles = []
         deleted_roles = []
+        created_roles = []
 
         # Get all roles currently in database
         result = await db.execute(
@@ -185,9 +186,18 @@ class Role(Base):
                     })
 
                     existing_role.name = discord_role["name"]
-
-            #Add new discord role
-            print ("DISCORD ROLE", discord_role,existing_roles)
+            else:
+                #Add new discord role
+                role = Role(
+                        discord_id=discord_role["discord_id"],
+                        name=discord_role["name"],
+                    )
+                db.add(role)
+                created_roles.append({
+                    "discord_id": discord_role["discord_id"],
+                    "name": discord_role["name"],
+                })
+                print ("DISCORD ROLE", discord_role,existing_roles)
         # Find roles removed from Discord
         for existing_role in existing_roles:
 
@@ -203,10 +213,12 @@ class Role(Base):
 
 
         await db.flush()
+        await db.commit()
 
         return {
             "renamed_roles": renamed_roles,
             "deleted_roles": deleted_roles,
+            "created_roles" : created_roles
         }
 
     @classmethod
@@ -412,7 +424,9 @@ class User(Base):
         db: AsyncSession,
         users: list[dict],
     ) -> dict:
-
+        """
+            Imports new users only
+        """
         inserted = []
         existing = []
         failed = []
@@ -429,16 +443,17 @@ class User(Base):
 
                 existing_user = existing_user.scalar_one_or_none()
 
-                if existing_user is not None:
-                    #Update roles if the existing user has changed roles
-                    created_roles, role_changes = await Role.sync_user_roles(db,existing_user,discord_user["roles"])
-                    print("CREATED ROLES", created_roles)
-                    new_roles_created.extend(created_roles)
-                    existing.append({
-                        "user": existing_user.user_name,
-                        "role_changes": role_changes
-                    })
-                    continue
+                #22/07/2026 - Skip role updates here as it is done using a different method
+                # if existing_user is not None:
+                #     #Update roles if the existing user has changed roles
+                #     created_roles, role_changes = await Role.sync_user_roles(db,existing_user,discord_user["roles"])
+                #     print("CREATED ROLES", created_roles)
+                #     new_roles_created.extend(created_roles)
+                #     existing.append({
+                #         "user": existing_user.user_name,
+                #         "role_changes": role_changes
+                #     })
+                #     continue
 
                 user = await cls.create_one(
                     db,
@@ -477,6 +492,9 @@ class User(Base):
         failed = []
 
         try:
+            """
+                Updates user attributes if they have changed on discord
+            """
             # Create lookup from Discord response
             discord_users = {
                 user["id"]: user
