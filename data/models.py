@@ -34,6 +34,10 @@ class DatabaseUpdateError(Exception):
 class RoleNotFoundException(Exception):
     pass
 
+class UserNotFoundException(Exception):
+    pass
+
+
 # Pure many-to-many helper table (no extra data columns, fine as a Table object)
 user_roles = Table(
     "user_roles",
@@ -836,10 +840,13 @@ class User(Base):
             await db.commit()
             return self
 
+    #NEEDS TO BE A CLASS METHOD - TAKE ROLE ID AND USER ID AS PARAMS
+    @classmethod
     async def assign_role_as_active(
-        self,
+        cls,
         db: AsyncSession,
-        role_id: int
+        role_id: int,
+        user_id : int,
     ) -> "User | None":
         """
             Make an eligible role assignment to a user 
@@ -854,14 +861,26 @@ class User(Base):
         role = role_result.scalar_one_or_none()
         if not role:
             raise RoleNotFoundException()
+        #Get the user
+        user_result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.roles),
+                selectinload(cls.eligible_roles_association).selectinload(EligibleRole.role)
+            )
+            .where(cls.id == user_id)
+            .limit(1)
+        )
+        user = user_result.scalar_one_or_none()
+        if not user:
+            raise UserNotFoundException()
 
-        if role not in self.roles:
-            self.roles.append(role)
-
-        await db.flush()
+        if role not in user.roles:
+            user.roles.append(role)
+            await db.flush()
         await db.commit()
 
-        return self
+        return user
     
     async def remove_active_role(
         self,
@@ -889,6 +908,17 @@ class User(Base):
         await db.commit()
 
         return self
+    
+    # async def add_to_role(
+    #     self,
+    #     db: AsyncSession,
+    #     role: Role
+    # ):
+    #     self.roles.append(role)
+    #     print("ADDING ROLES", self.roles)
+    #     await db.flush()
+    #     await db.commit()
+    
 
 
 async def test_role_eligibility():

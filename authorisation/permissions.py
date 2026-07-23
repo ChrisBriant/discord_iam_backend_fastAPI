@@ -50,3 +50,29 @@ class RequirePermission:
             raise HTTPException(status_code=403, detail=f"{self.permission} role is required")
 
         return user
+    
+class IsEligible:
+    async def __call__(
+        self,
+        role_id : int,
+        token_data = Depends(validate_jwt),
+    ):
+        #Get the user from the database
+        user = None
+        async with SessionLocal() as session:
+            user = await User.get_by_id(session,int(token_data["user_id"]))
+            #user = await User.get_by_id(session,120)
+        if not user:
+            raise HTTPException(status_code=403, detail="User is not an authorised member")
+        eligible_role_ids = [eligible_role.role_id for eligible_role in user.eligible_roles_association]
+        print("USER ELIGIBLE ROLES", eligible_role_ids)
+        if role_id in eligible_role_ids:
+            #Get the role to return
+            role = [eligible_role.role for eligible_role in user.eligible_roles_association if eligible_role.role_id == role_id ]
+            print("USER AND ROLE", user, role[0])
+            return {
+                "user": user,
+                "role": role[0],
+            }
+        raise HTTPException(status_code=403, detail=f"Not eligible for role activation")
+        

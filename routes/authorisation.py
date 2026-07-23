@@ -24,7 +24,7 @@ from authentication.token import (
     ACCESS_TOKEN_LIFETIME,
     REFRESH_TOKEN_LIFETIME
 )
-from authorisation.permissions import RequirePermission
+from authorisation.permissions import RequirePermission, IsEligible
 from data.schemas import (
     PaginatedResponse,
     UserSchema,
@@ -35,10 +35,8 @@ from data.schemas import (
 from math import ceil
 from typing import List
 from pathlib import Path
-import json
-import os
 #import bleach
-import base64
+from discord.get_discord_server_data import add_user_role
 
 router = APIRouter()
 
@@ -196,16 +194,30 @@ async def remove_eligible_role_association(
 
 
 
-# @router.post("/activaterole", status_code=status.HTTP_201_CREATED)
-# async def activate_eligible_role(
-#     role_id : int,
-#     user = Depends(IsEligble("User Manager"))
-# ):
-#     """
-#         Check the role is eligible and set as an active role if so.
-#     """
-#     #TODO - Role reconciliation needs to remove expired role assignments
-#     pass
+@router.post("/activaterole", status_code=status.HTTP_201_CREATED,response_model = UserSchema)
+async def activate_eligible_role(
+    role_id : int,
+    user_and_role = Depends(IsEligible())
+):
+    """
+        Check the role is eligible and set as an active role if so.
+        Updates discord with the role membership
+    """
+    user = user_and_role["user"]
+    role = user_and_role["role"]
+    print("ACTIVATING ROLE", user_and_role )
+    #Update database
+    async with SessionLocal() as session:
+        try:
+            user = await User.assign_role_as_active(session,role.id,user.id)
+        except Exception as e:
+            raise HTTPException(status_code=404, detail="A problem occurred assigning the role")
+    #Update on discord
+    add_user_role(user.discord_id,role.discord_id)
+    user_response = UserSchema.model_validate(user)
+    return user_response
+
+#TODO: Method to remove a role association and update discord
 
 
 # @router.post("/updateroleassignment", status_code=status.HTTP_201_CREATED)
