@@ -14,7 +14,7 @@ DB_PASSWORD = os.environ.get("DB_PASSWORD")
 
 DATABASE_URL = f"postgresql+asyncpg://{DB_USERNAME}:{DB_PASSWORD}@localhost/{DB_NAME}"
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=False)
 
 # Use async_sessionmaker instead of sessionmaker
 SessionLocal = async_sessionmaker(

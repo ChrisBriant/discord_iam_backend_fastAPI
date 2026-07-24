@@ -386,6 +386,7 @@ class User(Base):
 
                 existing_user = existing_user.scalar_one_or_none()
                 if existing_user is not None:
+                    print("USER",existing_user.user_name)
                     #Check eligible roles against active roles
                     print("Active Roles", existing_user.roles)
                     #Filter the eligible roles
@@ -416,10 +417,10 @@ class User(Base):
                     "error" : ex
                 })
                 print(f"Error processing user roles for {discord_user["username"]}, id= {discord_user["id"]}", ex)
-            await db.commit()
-            print("Results", user_updated_roles)
-            print("Errors",user_updated_role_errors )
-            return user_updated_roles, user_updated_role_errors 
+        await db.commit()
+        print("Results", user_updated_roles)
+        print("Errors",user_updated_role_errors )
+        return user_updated_roles, user_updated_role_errors 
 
 
     @classmethod

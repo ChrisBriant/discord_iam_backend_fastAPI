@@ -2,29 +2,9 @@ from fastapi import APIRouter, HTTPException, Request, Depends, Response, Query,
 from typing import Optional
 from fastapi.responses import RedirectResponse
 from providers.provider_registry import get_provider
-# from data.db_actions import (
-#     get_or_add_user, 
-#     get_user, 
-#     get_feedback,
-#     create_auth_code,
-#     validate_auth_code,
-#     update_terms_accepted,
-# )
 from data.models import User, Role, RoleNotFoundException
 from data.db import SessionLocal
-import uuid
-from authentication.token import (
-    obtain_jwt_pair, 
-    refresh_jwt_pair, 
-    validate_jwt_token, 
-    validate_jwt_cookie,
-    validate_jwt, 
-    RefreshTokenExpiredError, 
-    InvalidRefreshTokenError,
-    ACCESS_TOKEN_LIFETIME,
-    REFRESH_TOKEN_LIFETIME
-)
-from authorisation.permissions import RequirePermission, IsEligible
+from authorisation.permissions import RequirePermission, IsEligible, IsAssigned, UserBasic
 from data.schemas import (
     PaginatedResponse,
     UserSchema,
@@ -194,7 +174,7 @@ async def remove_eligible_role_association(
 
 
 
-@router.post("/activaterole", status_code=status.HTTP_201_CREATED,response_model = UserSchema)
+@router.post("/activaterole",response_model = UserSchema)
 async def activate_eligible_role(
     role_id : int,
     user_and_role = Depends(IsEligible())
@@ -217,14 +197,36 @@ async def activate_eligible_role(
     user_response = UserSchema.model_validate(user)
     return user_response
 
-#TODO: Method to remove a role association and update discord
 
 
-# @router.post("/updateroleassignment", status_code=status.HTTP_201_CREATED)
-# async def update_eligible_role(
-#     role_assignment : RoleAssignmentSchema,
-#     user = Depends(IsEligble("User Manager"))
-# ):
+@router.post("/deactivaterole")
+async def deactivate_role(
+    role_assignment : RoleAssignmentSchema,
+    user_and_role = Depends(IsAssigned())
+):
     """
         Update the eligible role assignment
     """
+    user = user_and_role["user"]
+    role = user_and_role["role"]
+    print("ACTIVATING ROLE", user_and_role )
+    #Update database
+    async with SessionLocal() as session:
+        try:
+            await user.remove_active_role(session,role.id)
+        except Exception as e:
+            raise HTTPException(status_code=404, detail="A problem occurred assigning the role")
+    #Update on discord
+    #add_user_role(user.discord_id,role.discord_id)
+    user_response = UserSchema.model_validate(user)
+    return user_response
+
+@router.get("/me")
+async def my_profile(
+    user = Depends(UserBasic())
+):
+    """
+        Displays the user information
+    """
+    response = UserSchema.model_validate(user)
+    return response

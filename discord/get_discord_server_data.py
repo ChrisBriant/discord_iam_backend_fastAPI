@@ -108,6 +108,34 @@ def add_user_role(user_discord_id,role_id):
         print("STATUS CODE", result.status_code, result.json(), url)
         raise APIRetrievalError("STATUS CODE", result.status_code, result.json(), url)
 
+def get_users():
+    """
+        Get all the users from discord and return the list
+    """
+    url = f"https://discord.com/api/v10/guilds/{guild_id}/members?limit=1000"
+    headers = {
+        "Authorization": f"Bot {bot_token}"
+    }
+
+    r = requests.get(url, headers=headers)
+
+    if r.status_code == 200:
+        user_data = r.json()
+
+        return [ {
+                "id" : u["user"]["id"], 
+                "username" :  u["user"]["username"], 
+                "global_name" :  u["user"]["global_name"],
+                "roles": [
+                    role_lookup[role_id]
+                    for role_id in u["roles"]
+                    if role_id in role_lookup
+                ]
+            }  for u in user_data
+        ]
+    else:
+        print("STATUS CODE", r.status_code, r.json(), url)
+        raise APIRetrievalError("STATUS CODE", r.status_code, r.json(), url)
 
 
 def get_members(role_lookup):
@@ -192,10 +220,10 @@ async def handle_bulk_import_reconciliation_to_db(user_data, role_data):
     async with SessionLocal() as session:
         #UPDATE ROLE ASSIGNMENTS BASED ON eligibility
         try:
-            #user_role_update_results, user_role_update_errors = await User.remove_expired_roles(session,user_data)
-            user_role_update_results = [{'id': 1, 'discord_id': '1065891826361434133', 'roles': [{'id': 10, 'name': 'User Manager', 'discord_id': '1526419413098561718'}]},
-                                        {'id': 1, 'discord_id': '1526484437724958760', 'roles': [{'id': 10, 'name': 'User Manager', 'discord_id': '1526419413098561718'}]}
-                                        ]
+            user_role_update_results, user_role_update_errors = await User.remove_expired_roles(session,user_data)
+            # user_role_update_results = [{'id': 1, 'discord_id': '1065891826361434133', 'roles': [{'id': 10, 'name': 'User Manager', 'discord_id': '1526419413098561718'}]},
+            #                             {'id': 1, 'discord_id': '1526484437724958760', 'roles': [{'id': 10, 'name': 'User Manager', 'discord_id': '1526419413098561718'}]}
+            #                             ]
         except Exception as e:
             print("AN ERROR OCCURRED ON UPDATING ROLE ASSIGNMENTS", user_role_update_results)
         # UPDATE IN DISCORD
@@ -208,7 +236,7 @@ async def handle_bulk_import_reconciliation_to_db(user_data, role_data):
             }
         }
 
-        # #BULK INSERT USERS
+        #BULK INSERT USERS
         user_update_results = None
         try:
             user_import_results = await User.bulk_import(session,user_data)
@@ -255,7 +283,8 @@ if __name__ == "__main__":
     existing_members = None
 
     try:
-        existing_members = get_members(role_lookup)
+        #existing_members = get_members(role_lookup)
+        existing_members = get_users()
         #print("EXISTING MEMBERS", existing_members)
     except APIRetrievalError as api_error:
         print("An error occurred retrieving the member data", api_error)       
