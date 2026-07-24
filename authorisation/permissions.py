@@ -2,6 +2,10 @@ from fastapi import Depends, HTTPException
 from authentication.token import validate_jwt
 from data.models import User
 from data.db import SessionLocal
+from datetime import datetime, timezone
+
+class EligibleRoleExpired(Exception):
+    pass
 
 
 class RequirePermission:
@@ -48,14 +52,18 @@ class IsEligible:
             #user = await User.get_by_id(session,120)
         if not user:
             raise HTTPException(status_code=403, detail="User is not an authorised member")
+
         eligible_role_ids = [eligible_role.role_id for eligible_role in user.eligible_roles_association]
         if role_id in eligible_role_ids:
             #Get the role to return
-            role = [eligible_role.role for eligible_role in user.eligible_roles_association if eligible_role.role_id == role_id ]
-            print("USER AND ROLE", user, role[0])
+            eligible_role = [eligible_role for eligible_role in user.eligible_roles_association if eligible_role.role_id == role_id ][0]
+            #Check the date to see that if it has expired
+            if datetime.now(timezone.utc) > eligible_role.end_date:
+                raise  HTTPException(status_code=403, detail=f"Eligible role has expired")
+            print("USER AND ROLE", user, eligible_role.role)
             return {
                 "user": user,
-                "role": role[0],
+                "role": eligible_role.role,
             }
         raise HTTPException(status_code=403, detail=f"Not eligible for role activation")
 

@@ -131,7 +131,10 @@ async def get_roles(
             "page_size": page_size
         }
     
-#TODO - NEEDS TO FACTOR IN THE EXPIRY - THAT IS NOT WORKING
+
+#TODO COULD BE A PUT REQUEST - LOOK INTO THE DIFFERENT REQUEST TYPES
+# Create an endpoint to get the available roles as it needs to filter out the ones that are like named like the user
+
 @router.post("/setroleaseligible", dependencies=[Depends(RequirePermission("User Manager"))], status_code=status.HTTP_201_CREATED)
 async def set_eligible_role_association(
         #request: Request,

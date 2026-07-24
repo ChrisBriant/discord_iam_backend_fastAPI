@@ -809,6 +809,19 @@ class User(Base):
                 )
             )
             db.expire(self, ['eligible_roles_association'])
+        else:
+            #Update the eligible role
+            await db.execute(
+                update(EligibleRole)
+                .where(
+                    EligibleRole.user_id == self.id,
+                    EligibleRole.role_id == role_id
+                )
+                .values(
+                    start_date=start_date,
+                    end_date=end_date
+                )
+            )
 
         await db.flush()
         await db.commit()
