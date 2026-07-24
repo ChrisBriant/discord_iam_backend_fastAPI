@@ -435,7 +435,7 @@ class User(Base):
         inserted = []
         existing = []
         failed = []
-        new_roles_created = []
+        #new_roles_created = []
 
         for discord_user in users:
 
@@ -460,15 +460,16 @@ class User(Base):
                 #     })
                 #     continue
 
-                user = await cls.create_one(
-                    db,
-                    discord_id=discord_user["id"],
-                    user_name=discord_user["username"],
-                    global_name=discord_user["global_name"],
-                    roles=discord_user["roles"],
-                )
+                if not existing_user:
+                    user = await cls.create_one(
+                        db,
+                        discord_id=discord_user["id"],
+                        user_name=discord_user["username"],
+                        global_name=discord_user["global_name"],
+                        roles=discord_user["roles"],
+                    )
 
-                inserted.append(user)
+                    inserted.append(user)
 
             except Exception as ex:
                 await db.rollback()
@@ -482,7 +483,7 @@ class User(Base):
             "inserted": inserted,
             "existing": existing,
             "failed": failed,
-            "new roles" : new_roles_created,
+            #"new roles" : new_roles_created,
         }
 
     @classmethod
