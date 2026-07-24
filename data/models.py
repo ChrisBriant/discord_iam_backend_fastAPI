@@ -883,10 +883,12 @@ class User(Base):
         await db.commit()
 
         return user
-    
+
+    @classmethod
     async def remove_active_role(
-        self,
+        cls,
         db: AsyncSession,
+        user_id: int,
         role_id: int
     ) -> "User | None":
         """
@@ -903,13 +905,27 @@ class User(Base):
         if not role:
             raise RoleNotFoundException()
 
-        if role in self.roles:
-            self.roles.remove(role)
+        #Get the user
+        user_result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.roles),
+                selectinload(cls.eligible_roles_association).selectinload(EligibleRole.role)
+            )
+            .where(cls.id == user_id)
+            .limit(1)
+        )
+        user = user_result.scalar_one_or_none()
+        if not user:
+            raise UserNotFoundException()
+
+        if role in user.roles:
+            user.roles.remove(role)
 
         await db.flush()
         await db.commit()
 
-        return self
+        return user
     
     # async def add_to_role(
     #     self,

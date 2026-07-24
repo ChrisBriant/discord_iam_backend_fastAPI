@@ -72,10 +72,10 @@ class IsAssigned:
             #user = await User.get_by_id(session,120)
         if not user:
             raise HTTPException(status_code=403, detail="User is not an authorised member")
-        role_ids = [role.role_id for role in user.roles]
+        role_ids = [role.id for role in user.roles]
         if role_id in role_ids:
             #Get the role to return
-            role = [role for role in user.roles if role.role_id == role_id ]
+            role = [role for role in user.roles if role.id == role_id ]
             print("USER AND ROLE", user, role[0])
             return {
                 "user": user,

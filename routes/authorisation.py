@@ -131,7 +131,7 @@ async def get_roles(
             "page_size": page_size
         }
     
-
+#TODO - NEEDS TO FACTOR IN THE EXPIRY - THAT IS NOT WORKING
 @router.post("/setroleaseligible", dependencies=[Depends(RequirePermission("User Manager"))], status_code=status.HTTP_201_CREATED)
 async def set_eligible_role_association(
         #request: Request,
@@ -173,6 +173,7 @@ async def remove_eligible_role_association(
     return {"status": "success", "message": "Role assignment completed"}
 
 
+#CAN BELOW BE GET REQUESTS?
 
 @router.post("/activaterole",response_model = UserSchema)
 async def activate_eligible_role(
@@ -201,7 +202,6 @@ async def activate_eligible_role(
 
 @router.post("/deactivaterole")
 async def deactivate_role(
-    role_assignment : RoleAssignmentSchema,
     user_and_role = Depends(IsAssigned())
 ):
     """
@@ -213,7 +213,7 @@ async def deactivate_role(
     #Update database
     async with SessionLocal() as session:
         try:
-            await user.remove_active_role(session,role.id)
+            await user.remove_active_role(session,user.id,role.id)
         except Exception as e:
             raise HTTPException(status_code=404, detail="A problem occurred assigning the role")
     #Update on discord
