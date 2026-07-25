@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, Response, Query, status
 from typing import Optional
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from providers.provider_registry import get_provider
 from data.models import User, Role, RoleNotFoundException
 from data.db import SessionLocal
@@ -135,18 +135,27 @@ async def get_roles(
 #TODO COULD BE A PUT REQUEST - LOOK INTO THE DIFFERENT REQUEST TYPES
 # Create an endpoint to get the available roles as it needs to filter out the ones that are like named like the user
 
-@router.post("/setroleaseligible", dependencies=[Depends(RequirePermission("User Manager"))], status_code=status.HTTP_201_CREATED)
+#Below should probably return 201 for creating new and 200 for updating
+
+@router.put("/setroleaseligible", dependencies=[Depends(RequirePermission("User Manager"))], status_code=status.HTTP_200_OK)
 async def set_eligible_role_association(
         #request: Request,
         role_assignment : RoleAssignmentSchema,
+        response : Response
     ):
+    """
+        Set a role as eligible for the user
+        It will either create a new eligible assignment or update the existing one
+        201 - Created new eligible assignment
+        200 - Updated the assignment
+    """
     print(role_assignment.role_id, role_assignment.user_id)
     async with SessionLocal() as session:
         #Get the user
         user = None
         try:
             user = await User.get_by_id(session,user_id=role_assignment.user_id)
-            await user.assign_role_as_eligible(session,role_assignment.role_id,start_date=role_assignment.start_date,end_date=role_assignment.end_date)
+            updated_user, created = await user.assign_role_as_eligible(session,role_assignment.role_id,start_date=role_assignment.start_date,end_date=role_assignment.end_date)
         except RoleNotFoundException as role_ex:
             raise HTTPException(status_code=404, detail="Role does not exist")
         except Exception as e:
@@ -154,7 +163,10 @@ async def set_eligible_role_association(
             if not user:
                 raise HTTPException(status_code=404, detail="User does not exist")
         #TO DO - Needs to return an updated user object
-    return {"status": "success", "message": "Role assignment completed"}
+        response_data = UserSchema.model_validate(updated_user)
+        if created:
+            response.status_code = status.HTTP_201_CREATED
+        return response_data
 
 
 @router.post("/removeeligiblerole", dependencies=[Depends(RequirePermission("User Manager"))], status_code=status.HTTP_201_CREATED)
@@ -178,7 +190,7 @@ async def remove_eligible_role_association(
 
 #CAN BELOW BE GET REQUESTS?
 
-@router.post("/activaterole",response_model = UserSchema)
+@router.put("/{role_id}/activaterole",response_model = UserSchema)
 async def activate_eligible_role(
     role_id : int,
     user_and_role = Depends(IsEligible())
@@ -203,7 +215,7 @@ async def activate_eligible_role(
 
 
 
-@router.post("/deactivaterole")
+@router.delete("/{role_id}/deactivaterole")
 async def deactivate_role(
     user_and_role = Depends(IsAssigned())
 ):
@@ -216,12 +228,12 @@ async def deactivate_role(
     #Update database
     async with SessionLocal() as session:
         try:
-            await user.remove_active_role(session,user.id,role.id)
+            updated_user = await user.remove_active_role(session,user.id,role.id)
         except Exception as e:
             raise HTTPException(status_code=404, detail="A problem occurred assigning the role")
     #Update on discord
     #add_user_role(user.discord_id,role.discord_id)
-    user_response = UserSchema.model_validate(user)
+    user_response = UserSchema.model_validate(updated_user)
     return user_response
 
 @router.get("/me")

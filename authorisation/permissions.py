@@ -89,7 +89,7 @@ class IsAssigned:
                 "user": user,
                 "role": role[0],
             }
-        raise HTTPException(status_code=404, detail="Role not found")
+        raise HTTPException(status_code=404, detail="Role assignment not found")
 
 class UserBasic:
     async def __call__(

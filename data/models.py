@@ -796,6 +796,7 @@ class User(Base):
             raise RoleNotFoundException()
         
         existing_eligible_roles = [ eligible_role.role for eligible_role in self.eligible_roles_association]
+        created=False #For responding on created or updated
 
         if role not in existing_eligible_roles:
             #self.eligible_roles.append(role)
@@ -809,8 +810,10 @@ class User(Base):
                 )
             )
             db.expire(self, ['eligible_roles_association'])
+            created = True
         else:
             #Update the eligible role
+            print("I AM UPDATING")
             await db.execute(
                 update(EligibleRole)
                 .where(
@@ -826,7 +829,18 @@ class User(Base):
         await db.flush()
         await db.commit()
 
-        return self
+        result = await db.execute(
+            select(User)
+            .options(
+                selectinload(User.roles),
+                selectinload(User.eligible_roles_association).selectinload(EligibleRole.role)
+            )
+            .where(User.id == self.id)
+        )
+
+        updated_user = result.scalar_one_or_none()
+
+        return updated_user, created
     
     async def remove_eligible_role(
             self,
