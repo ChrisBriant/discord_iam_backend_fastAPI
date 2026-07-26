@@ -2,14 +2,6 @@ from fastapi import APIRouter, HTTPException, Request, Depends, Response, Query
 from typing import Optional
 from fastapi.responses import RedirectResponse
 from providers.provider_registry import get_provider
-# from data.db_actions import (
-#     get_or_add_user, 
-#     get_user, 
-#     get_feedback,
-#     create_auth_code,
-#     validate_auth_code,
-#     update_terms_accepted,
-# )
 from data.models import User
 from data.db import SessionLocal
 import uuid
@@ -28,7 +20,7 @@ from data.schemas import (
     TokenSchema, 
     ProviderSchema, 
     UserProfileSchema, 
-    AuthCodeSchema,
+    UserSchema,
     RefreshTokenSchema,
 )
 from typing import List
@@ -143,15 +135,18 @@ async def auth_callback_with_redirect(request: Request, provider: str, code: str
     #Verify the token and return the user profile data
     user_profile = await idp.get_user_info(access_token)
 
+    print("USER PROFILE", user_profile)
+
     # database logic here
     async with SessionLocal() as session:
         user_record = await User.get_by_external_id(session,str(user_profile["id"]))
+        print("USER RECORD BEFORE ISSUE JWT", user_record)
         if not user_record:
             raise HTTPException(
                 status_code=400,
                 detail="Failed to create the user"
             )
-    print("USER RECORD BEFORE ISSUE JWT", user_record)
+   
     #Issue a JWT
     jwt_token_pair = obtain_jwt_pair(str(user_record.id),"discord", user_record.user_name, user_record.terms_accepted) 
  
@@ -196,13 +191,25 @@ async def auth_callback_with_redirect(request: Request, provider: str, code: str
 
 @router.get("/session", response_model=UserProfileSchema)
 async def get_session(token_data = Depends(validate_jwt)):
-    response = UserProfileSchema(
-        id=token_data["user_id"],
-        idp= token_data["idp"],
-        accepted_terms = token_data["accepted_terms"],
-        alias=token_data["alias"]
-    )
-    return response
+    # response = UserProfileSchema(
+    #     id=token_data["user_id"],
+    #     idp= token_data["idp"],
+    #     accepted_terms = token_data["accepted_terms"],
+    #     alias=token_data["alias"]
+    # )
+    async with SessionLocal() as session:
+        user = await User.get_by_id(session,int(token_data["user_id"]))
+        if not user:
+            raise HTTPException(status_code=404, detail="User does not exist")
+        user_response = UserSchema.model_validate(user)
+
+        return UserProfileSchema(
+            id=token_data["user_id"],
+            user_data=user_response,
+            idp= token_data["idp"],
+            accepted_terms = token_data["accepted_terms"],
+            alias=token_data["alias"]
+        )
 
 @router.post("/acceptterms", response_model=UserProfileSchema)
 async def accept_terms(response: Response, set_cookie : bool = Query(True), token_data = Depends(validate_jwt)):

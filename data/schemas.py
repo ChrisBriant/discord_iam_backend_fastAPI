@@ -18,6 +18,7 @@ class ProviderSchema(BaseModel):
 
 class UserProfileSchema(BaseModel):
     id : int
+    user_data : "UserSchema"
     idp : str
     alias : str
     accepted_terms : bool
