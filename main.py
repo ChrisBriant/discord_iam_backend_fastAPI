@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from routes.authentication import router as auth_router
 from routes.authorisation import router as authorisation_router
+from routes.discord import router as discord_router
 import os
 import dotenv
 
@@ -27,3 +28,4 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.include_router(auth_router, prefix="/auth")
 app.include_router(authorisation_router, prefix="/authorisation")
+app.include_router(discord_router, prefix="/discord")

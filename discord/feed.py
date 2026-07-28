@@ -34,10 +34,10 @@ async def get_messages(channel_id):
 
 async def main(channel_id):
     discord_messages = await get_messages(channel_id)
-    #print("These are the discord messages", discord_messages)
+    print("These are the discord message keys", discord_messages[0].keys())
     for message in discord_messages:
         #print("MESSAGE DATA", message.keys())
-        print("CONTENT", message["content"])
+        print("CONTENT", message['id'], message['author'], message["content"], message["type"])
 
 if __name__ == "__main__":
     channel_id = sys.argv[1]

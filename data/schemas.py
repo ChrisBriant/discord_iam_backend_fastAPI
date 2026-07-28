@@ -106,3 +106,22 @@ class PaginatedResponse(BaseModel, Generic[T]):
     total_pages: int
     page: int
     page_size: int
+
+#DISCORD DATA
+
+class DiscordUserProfile(BaseModel):
+    discord_id : str
+    user_name : str
+    global_name : str | None = None
+    #bot : bool | None = None
+
+class DiscordChannelMessage(BaseModel):
+    id : str
+    channel_id : str
+    content : str
+    date_created : datetime | None = None
+    date_modified : datetime | None = None
+    author : DiscordUserProfile
+    type : int
+
+
