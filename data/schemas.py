@@ -124,4 +124,14 @@ class DiscordChannelMessage(BaseModel):
     author : DiscordUserProfile
     type : int
 
+class DiscordEvent(BaseModel):
+    id : str
+    name : str
+    description : str
+    channel_id : str | None = None
+    entity_type : int
+    start_time : datetime
+    end_time : datetime | None = None
+    creator : DiscordUserProfile
+
 
