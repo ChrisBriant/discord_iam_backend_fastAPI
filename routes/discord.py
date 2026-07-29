@@ -63,6 +63,7 @@ async def get_events_route(
     except Exception as e:
         print(e)
         raise HTTPException(status_code=400, detail="Unable to retrieve events")
+    print("EVENTS LENGTH", len(events))
     events_response = [
         DiscordEvent(
             id=e['id'],
