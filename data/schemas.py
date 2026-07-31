@@ -134,4 +134,9 @@ class DiscordEvent(BaseModel):
     end_time : datetime | None = None
     creator : DiscordUserProfile
 
+class Channel(BaseModel):
+    id : str
+    name : str
+    parent_id : str | None = None
 
+    #model_config = ConfigDict(from_attributes=True)

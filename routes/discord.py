@@ -6,11 +6,12 @@ from authorisation.permissions import RequirePermission, IsEligible, IsAssigned,
 from data.schemas import (
     DiscordChannelMessage,
     DiscordUserProfile,
-    DiscordEvent,   
+    DiscordEvent,
+    Channel,
 )
 from typing import List
 #import bleach
-from discord.feed import get_messages
+from discord.feed import get_messages, get_channels as get_channels_from_discord
 from discord.events import get_events
 
 
@@ -82,5 +83,25 @@ async def get_events_route(
         for e in events
     ]
     return events_response
+
+@router.get("/channels", response_model=List[Channel])
+async def get_channels():
+    try:
+        channel_data = await get_channels_from_discord()
+    except Exception as e:
+        raise HTTPException(status_code=400,detail="Unable to retrieve channel data" )
+    response_data = [ Channel.model_validate(c) for c in channel_data]
+    # for c in channel_data:
+    #     print("DATA")
+    #     print(c["parent_id"])
+    # response_data = [ Channel(
+    #                     id = c["id"],
+    #                     name = c["name"],
+    #                     parent_id = c["parent_id"]
+    #                 ) for c in channel_data]
+    return response_data
+
+
+
 
 #TODO : Create an endpoint to create events if the user has permission
