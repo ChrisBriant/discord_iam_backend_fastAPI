@@ -78,6 +78,11 @@ The admin system allows:
 - Database is the source of truth for the application
 - Member sync must be periodic (users change over time)
 
+## CREATE SSL
+
+openssl rsa -in private.key -out private_unencrypted.key
+
+openssl req -x509 -nodes -newkey rsa:2048 -keyout private.key -out certificate.crt -days 365
 
 ## RUNNING THE SERVER
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload --ssl-keyfile=key.pem --ssl-certfile=cert.pem

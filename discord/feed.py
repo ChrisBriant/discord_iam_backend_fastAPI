@@ -45,8 +45,10 @@ async def get_channels():
     result = requests.get(url, headers=headers)
 
     if result.status_code == 200:
-        data = result.json() 
-        return data
+        data = result.json()
+        #Filter so that you only get text and voice channels
+        filtered_data = [ ch for ch in data if ch["type"] in [0,2] ]
+        return filtered_data
     else:
         print("STATUS CODE", result.status_code, result.json(), url)
         raise APIRetrievalError("Unable to retrieve data")

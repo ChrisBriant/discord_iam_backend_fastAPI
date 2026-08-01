@@ -88,6 +88,7 @@ async def get_events_route(
 async def get_channels():
     try:
         channel_data = await get_channels_from_discord()
+        print("CHANNEL DATA", channel_data)
     except Exception as e:
         raise HTTPException(status_code=400,detail="Unable to retrieve channel data" )
     response_data = [ Channel.model_validate(c) for c in channel_data]
