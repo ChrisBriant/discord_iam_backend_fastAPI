@@ -77,10 +77,11 @@ async def get_users(
         }
 
 
+
 @router.get("/roles", response_model=PaginatedResponse)
 async def get_roles(
         request: Request,
-        user = Depends(RequirePermission("User Manager")),
+        user = Depends(RequirePermission("Role Manager")),
         page: int = Query(1, ge=1),
         page_size: int = Query(10, ge=1, le=100)
     ):
@@ -207,7 +208,7 @@ async def activate_eligible_role(
         try:
             user = await User.assign_role_as_active(session,role.id,user.id)
         except Exception as e:
-            raise HTTPException(status_code=404, detail="A problem occurred assigning the role")
+            raise HTTPException(status_code=401, detail="A problem occurred assigning the role")
     #Update on discord
     add_user_role(user.discord_id,role.discord_id)
     user_response = UserSchema.model_validate(user)
