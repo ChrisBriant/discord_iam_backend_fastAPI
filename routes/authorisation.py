@@ -4,7 +4,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from providers.provider_registry import get_provider
 from data.models import User, Role, RoleNotFoundException
 from data.db import SessionLocal
-from authorisation.permissions import RequirePermission, IsEligible, IsAssigned, UserBasic
+from authorisation.permissions import RequirePermission, RequireRole, IsEligible, IsAssigned, UserBasic
 from data.schemas import (
     PaginatedResponse,
     UserSchema,
@@ -28,7 +28,7 @@ router = APIRouter()
 @router.get("/users", response_model=PaginatedResponse)
 async def get_users(
         request: Request,
-        user = Depends(RequirePermission("User Manager")),
+        user = Depends(RequireRole(["User Manager","Role Manager"])),
         page: int = Query(1, ge=1),
         page_size: int = Query(10, ge=1, le=100)
     ):

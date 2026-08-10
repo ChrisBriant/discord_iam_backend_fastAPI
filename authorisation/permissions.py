@@ -3,6 +3,7 @@ from authentication.token import validate_jwt
 from data.models import User
 from data.db import SessionLocal
 from datetime import datetime, timezone
+from typing import List
 
 class EligibleRoleExpired(Exception):
     pass
@@ -36,6 +37,41 @@ class RequirePermission:
         assigned_roles = [role.name for role in user.roles]
         if self.permission not in assigned_roles:
             raise HTTPException(status_code=403, detail=f"{self.permission} role is required")
+
+        return user
+
+
+class RequireRole:
+    def __init__(self, roles: list[str]):
+        self.roles = roles
+
+    async def __call__(
+        self,
+        token_data = Depends(validate_jwt)
+    ):
+        """
+            Requires one of the defined roles
+        """
+        #Get the user from the database
+        user = None
+        async with SessionLocal() as session:
+            user = await User.get_by_id(session,int(token_data["user_id"]))
+            #user = await User.get_by_id(session,120)
+        if not user:
+            raise HTTPException(status_code=403, detail="User is not an authorised member")
+        
+        #Check user is enabled and accepted the terms and conditions
+        if not user.terms_accepted:
+            raise HTTPException(status_code=403, detail="Please accept the terms and conditions")
+        
+        if not user.enabled:
+            raise HTTPException(status_code=403, detail="User is not enabled")
+        
+        #Check roles
+        assigned_roles = [role.name for role in user.roles]
+        matching_roles = set(assigned_roles) & set(self.roles)
+        if len(matching_roles) < 1:
+            raise HTTPException(status_code=403, detail=f"A role in {self.roles} role is required")
 
         return user
     
