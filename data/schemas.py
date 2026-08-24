@@ -37,6 +37,10 @@ class RoleAssignmentSchema(BaseModel):
     end_date : datetime = datetime.now() + timedelta(days=1)
 
 
+class RoleRemovalSchema(BaseModel):
+    role_id : int
+    user_id : int
+
 class UserSchemaBasic(BaseModel):
     id: int
     discord_id: str

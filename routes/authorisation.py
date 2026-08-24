@@ -10,7 +10,8 @@ from data.schemas import (
     UserSchema,
     #EligibleRoleSchema,
     RoleSchemaWithUsers,
-    RoleAssignmentSchema
+    RoleAssignmentSchema,
+    RoleRemovalSchema
 )
 from math import ceil
 from typing import List
@@ -138,7 +139,7 @@ async def get_roles(
 
 #Below should probably return 201 for creating new and 200 for updating
 
-@router.put("/setroleaseligible", dependencies=[Depends(RequirePermission("User Manager"))], status_code=status.HTTP_200_OK)
+@router.put("/setroleaseligible", dependencies=[Depends(RequirePermission("Role Manager"))], status_code=status.HTTP_200_OK)
 async def set_eligible_role_association(
         #request: Request,
         role_assignment : RoleAssignmentSchema,
@@ -171,7 +172,7 @@ async def set_eligible_role_association(
 
 
 @router.post("/removeeligiblerole", dependencies=[Depends(RequirePermission("User Manager"))], status_code=status.HTTP_201_CREATED)
-async def remove_eligible_role_association(
+async def remove_eligible_role_association_post(
         role_assignment : RoleAssignmentSchema,
     ):
     print(role_assignment.role_id, role_assignment.user_id)
@@ -187,6 +188,28 @@ async def remove_eligible_role_association(
                 raise HTTPException(status_code=404, detail="User does not exist")
         #TO DO - Needs to return an updated user object
     return {"status": "success", "message": "Role assignment completed"}
+
+@router.delete( "/removeeligiblerole", 
+                dependencies=[Depends(RequirePermission("Role Manager"))], 
+                status_code=status.HTTP_200_OK,
+                response_model = UserSchema
+            )
+async def remove_eligible_role_association_del(
+        role_assignment : RoleRemovalSchema,
+    ):
+    print(role_assignment.role_id, role_assignment.user_id)
+    async with SessionLocal() as session:
+        #Get the user
+        try:
+            user = await User.get_by_id(session,user_id=role_assignment.user_id)
+            await user.remove_eligible_role(session,role_assignment.role_id)
+        except RoleNotFoundException as role_ex:
+            raise HTTPException(status_code=404, detail="Role does not exist")
+        except Exception as e:
+            if not user:
+                raise HTTPException(status_code=404, detail="User does not exist")
+    user_response = UserSchema.model_validate(user)
+    return user_response
 
 
 #CAN BELOW BE GET REQUESTS?
