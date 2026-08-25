@@ -285,7 +285,7 @@ if __name__ == "__main__":
     try:
         #existing_members = get_members(role_lookup)
         existing_members = get_users()
-        #print("EXISTING MEMBERS", existing_members)
+        print("EXISTING MEMBERS", existing_members)
     except APIRetrievalError as api_error:
         print("An error occurred retrieving the member data", api_error)       
 

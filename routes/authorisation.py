@@ -18,6 +18,7 @@ from typing import List
 from pathlib import Path
 #import bleach
 from discord.get_discord_server_data import add_user_role
+from discord.users import kick_user
 
 router = APIRouter()
 
@@ -269,3 +270,44 @@ async def my_profile(
     """
     response = UserSchema.model_validate(user)
     return response
+
+@router.post(
+        "/users/{user_id}/kick", 
+        dependencies=[Depends(RequirePermission("User Manager"))],  
+        response_model=UserSchema
+    )
+async def my_profile(
+    user_id : str
+):
+    #Unprocessable entity if user_id is not an int
+    try:
+        user_id_int = int(user_id)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail="Invalid user_id")
+    #SET BANNED ATTRIBUTES IN DB
+    async with SessionLocal() as session:
+        user = None
+        try:
+            user = await User.update_user(
+                session,
+                user_id_int,
+                {
+                    "enabled" : False,
+                    "banned" : True
+            })
+        except Exception as e:
+            print("Error", e)
+            
+            raise HTTPException(status_code=400, detail="Unable to update user in database")
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        print("NEW USER OBJ", user)
+    #Kick from discord
+    try:
+        await kick_user(user.discord_id)
+    except Exception as e:
+        print("ERROR KICKING USER", e)
+        raise HTTPException(status_code=400, detail="Failed to kick user from discord server")
+    user_response = UserSchema.model_validate(user)
+    return user_response

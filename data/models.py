@@ -277,6 +277,7 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), nullable=False)
     terms_accepted = Column(Boolean, nullable=False, default=False)
     enabled = Column(Boolean, nullable=False, default=False)
+    banned = Column(Boolean, nullable=False, default=False)
 
     # Standard Many-to-Many
     roles = relationship(
@@ -459,6 +460,7 @@ class User(Base):
                 #         "role_changes": role_changes
                 #     })
                 #     continue
+
 
                 if not existing_user:
                     user = await cls.create_one(
@@ -768,6 +770,7 @@ class User(Base):
             select(cls)
             .options(
                 selectinload(cls.roles),
+                selectinload(cls.eligible_roles_association).selectinload(EligibleRole.role)
             )
             .where(cls.id == user_id))
         return updated_user.scalar_one()
