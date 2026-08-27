@@ -128,6 +128,7 @@ class DiscordChannelMessage(BaseModel):
     author : DiscordUserProfile
     type : int
 
+#TODO : Add location attribute
 class DiscordEvent(BaseModel):
     id : str
     name : str
@@ -137,6 +138,15 @@ class DiscordEvent(BaseModel):
     start_time : datetime
     end_time : datetime | None = None
     creator : DiscordUserProfile
+
+class DiscordInputEvent(BaseModel):
+    name : str
+    description : str
+    channel_id : str | None = None
+    entity_type : int
+    start_time : datetime
+    end_time : datetime
+    location : str | None = None
 
 class Channel(BaseModel):
     id : str

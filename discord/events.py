@@ -49,7 +49,7 @@ async def create_event(event_data):
         return data
     else:
         print("STATUS CODE", result.status_code, result.json(), url)
-        raise APIRetrievalError("Unable to retrieve data from discord")
+        raise APIRetrievalError(status_code=result.status_code, message=result.json())
 
 async def main():
     # events = await get_events()
