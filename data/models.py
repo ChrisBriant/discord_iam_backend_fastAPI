@@ -16,6 +16,7 @@ from sqlalchemy import (
     Boolean,
     update,
     Table,
+    CheckConstraint,
     text
 )
 from sqlalchemy.orm import relationship, selectinload
@@ -45,6 +46,79 @@ user_roles = Table(
     Column("user_id", ForeignKey("users.id"), primary_key=True),
     Column("role_id", ForeignKey("roles.id"), primary_key=True),
 )
+
+
+
+#{'id': '1542385039302463498', 'guild_id': '1393825603173744640', 'name': 'Stringy', 'description': 'string along with me', 'channel_id': None, 'creator_id': '1523518794746695710', 'image': None, 'scheduled_start_time': '2026-08-31T03:28:31.452000+00:00', 'scheduled_end_time': '2026-08-31T04:29:31.452000+00:00', 'status': 1, 'entity_type': 3, 'entity_id': None, 'recurrence_rule': None, 'privacy_level': 2, 'sku_ids': [], 'guild_scheduled_event_exceptions': [], 'entity_metadata': {'location': 'online'}}
+class Event(Base):
+    __tablename__ = "events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    discord_id = Column(String, nullable=False, unique=True)
+    name = Column(String, nullable=False)
+    description = Column(String, nullable=False)
+    scheduled_start_time = Column(DateTime(timezone=True), nullable=False)
+    scheduled_end_time = Column(DateTime(timezone=True), nullable=True)
+    last_updated_at = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    channel_id = Column(String, nullable=True)
+    entity_type = Column(Integer, CheckConstraint("entity_type IN (2, 3)"), nullable=False,)
+    location =  Column(String, nullable=True)
+    creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    creator = relationship(
+        "User",
+        back_populates="events",
+    )
+
+    @classmethod
+    async def create_one(
+        cls,
+        db: AsyncSession,
+        discord_id : str,
+        name: str,
+        description : str,
+        scheduled_start_time : datetime,
+        entity_type : int,
+        creator : "User", 
+        scheduled_end_time : datetime | None = None,
+        channel_id : str | None = None, 
+        location : str | None = None,
+    ) -> "Event":
+
+        event = cls(
+            discord_id=discord_id,
+            name=name,
+            description=description,
+            scheduled_start_time = scheduled_start_time,
+            scheduled_end_time = scheduled_end_time,
+            created_at=datetime.now(timezone.utc),
+            last_updated_at=datetime.now(timezone.utc),
+            entity_type = entity_type,
+            creator = creator,
+            channel_id=channel_id,
+            location=location,
+        )
+
+        try:
+            db.add(event)
+            await db.commit()
+            await db.flush()
+            await db.refresh(event)
+        except IntegrityError as ie:
+            print("Error inserting user", ie)
+            await db.rollback()
+
+        inserted_event = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.creator)
+            )
+        .where(cls.discord_id == discord_id))
+
+
+        return inserted_event.scalar_one_or_none()
+
 
 # REFACTORED: Turned into an Association Object to support extra columns
 class EligibleRole(Base):
@@ -284,6 +358,11 @@ class User(Base):
         "Role",
         secondary=user_roles,
         back_populates="users",
+    )
+
+    events = relationship(
+        "Event",
+        back_populates="creator",
     )
 
     # Refactored for Association Object

@@ -1,6 +1,6 @@
 import asyncio
 from .db import engine, Base
-from .models import User, Role
+from .models import User, Role, Event
 from sqlalchemy import text
 
 
