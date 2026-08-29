@@ -20,6 +20,7 @@ from sqlalchemy import (
     text
 )
 from sqlalchemy.orm import relationship, selectinload
+from fastapi import HTTPException
 import enum
 import os, dotenv
 from pathlib import Path
@@ -118,6 +119,145 @@ class Event(Base):
 
 
         return inserted_event.scalar_one_or_none()
+
+
+    @classmethod
+    async def get_all(cls, db: AsyncSession, page: int = 1 , page_size: int = 10):
+        """
+            Get all the events
+        """
+
+        total_result = await db.execute(
+            select(func.count()).select_from(cls)
+        )
+        total = total_result.scalar_one()
+
+        #Get the paginated sessions
+        offset = (page - 1) * page_size
+
+        result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.creator),
+            )
+            .offset(offset)
+            .limit(page_size)
+        )
+
+        return result.scalars().all(), total
+
+
+
+    @classmethod
+    async def delete_by_id(
+        cls,
+        db: AsyncSession,
+        id : int
+    ):
+        result = await db.execute(
+            delete(cls).where(cls.id == id)
+        )
+
+        await db.commit()
+
+        if result.rowcount > 0:
+            return True
+        else:
+            return False
+
+    @classmethod
+    async def get_by_id(cls, db: AsyncSession, event_id: int):
+        """
+        Retrieve an event by ID
+        """
+        result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.creator),
+            )
+            .where(cls.id == event_id)
+        )
+        return result.scalar_one_or_none()
+
+
+    @classmethod
+    async def update_one(
+        cls,
+        db: AsyncSession,
+        id: int,
+        updates: dict,
+    ) -> "Event | None":
+
+        event_result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.creator)
+            )
+            .where(cls.id == id)
+        )
+
+        event = event_result.scalar_one_or_none()
+
+        if event is None:
+            return None
+
+        #Get the list of fields
+        update_items = updates.items()
+        update_keys = updates.keys()
+        #Rule for handling the entity_type of online
+        print("UPDATE ITEMS", update_keys)
+        if "entity_type" in update_keys:
+            if updates["entity_type"] == 2:
+                if "channel_id" not in update_keys:
+                    raise HTTPException(status_code=400,detail="Online events must include the channel id" )
+            elif updates["entity_type"] == 3:
+                #THIS WILL NEED TO HAVE SOME VALIDATION FOR THE LOCATION IN FUTURE
+                pass
+            else:
+                raise HTTPException(status_code=400,detail="Entity type must have a value of 2 (online) or 3 (physical)" )
+            
+        allowed_fields = {
+            "name",
+            "description",
+            "scheduled_start_time",
+            "scheduled_end_time",
+            "entity_type",
+            "location",
+            "creator",
+            "channel_id",
+        }
+
+        try:
+            for field, value in update_items:
+
+                if field not in allowed_fields:
+                    continue
+
+                if field == "creator":
+                    event.creator = value
+                else:
+                    setattr(event, field, value)
+
+            event.last_updated_at = datetime.now(timezone.utc)
+
+            await db.commit()
+            await db.flush()
+            await db.refresh(event)
+
+        except IntegrityError as ie:
+            print("Error updating event", ie)
+            await db.rollback()
+            return None
+
+        updated_event = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.creator)
+            )
+            .where(cls.id == id)
+        )
+
+        return updated_event.scalar_one_or_none()
 
 
 # REFACTORED: Turned into an Association Object to support extra columns

@@ -9,6 +9,8 @@ from ai.events import get_fake_event
 from data.models import Event, User
 from data.db import SessionLocal
 from datetime import datetime
+from asyncpg.exceptions import UniqueViolationError
+from data.schemas import DBEvent
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
@@ -58,22 +60,45 @@ async def reconcile_events():
     """ 
         Retrieve the events from discord and reconcile them with the database
     """
+    #TEST DATABASE EVENT FUNCTIONS
     test_event = {'id': '1542385039302463498', 'guild_id': '1393825603173744640', 'name': 'Stringy', 'description': 'string along with me', 'channel_id': None, 'creator_id': '1523518794746695710', 'image': None, 'scheduled_start_time': '2026-08-31T03:28:31.452000+00:00', 'scheduled_end_time': '2026-08-31T04:29:31.452000+00:00', 'status': 1, 'entity_type': 3, 'entity_id': None, 'recurrence_rule': None, 'privacy_level': 2, 'sku_ids': [], 'guild_scheduled_event_exceptions': [], 'entity_metadata': {'location': 'online'}}
     async with SessionLocal() as session:
         user = await User.get_by_id(session,1)
-        event = await Event.create_one(
-            session,
-            test_event['id'],
-            test_event['name'],
-            test_event['description'],
-            datetime.fromisoformat(test_event['scheduled_start_time']),
-            test_event["entity_type"],  
-            user,
-            datetime.fromisoformat(test_event['scheduled_end_time']),  
-            test_event['channel_id'],
-            test_event['entity_metadata']['location']     
-        )
-        print("CREATED EVENT", event)
+        try:
+            event = await Event.create_one(
+                session,
+                test_event['id'],
+                test_event['name'],
+                test_event['description'],
+                datetime.fromisoformat(test_event['scheduled_start_time']),
+                test_event["entity_type"],  
+                user,
+                datetime.fromisoformat(test_event['scheduled_end_time']),  
+                test_event['channel_id'],
+                test_event['entity_metadata']['location']     
+            )
+        except UniqueViolationError as uve:
+            print("ERROR", uve)
+        except Exception as e:
+            print("ERROR", e)
+        #await Event.delete_by_id(session,2)
+        event = await Event.get_by_id(session,3)
+        
+        #Update the event
+        updated_event = None
+        try:
+            updated_event = await Event.update_one(session,3,{
+                "name" : "Updated Event",
+                "description" : "I am describing an updated event",
+                "entity_type" : 2,
+                "channel_id" : "1393825603920199703"
+            })
+        except Exception as e:
+            print("ERROR", e)
+        if updated_event: 
+            event_response = DBEvent.model_validate(updated_event)
+            print("EVENT", event_response.model_dump())
+
     #TODO:
     # 1. Get the events from the database
     # 2. Get the events from discord

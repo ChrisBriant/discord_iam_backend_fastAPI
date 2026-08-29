@@ -9,6 +9,7 @@ from data.schemas import (
     DiscordUserProfile,
     DiscordEvent,
     DiscordInputEvent,
+    DBEvent,
     Channel,
 )
 from typing import List
@@ -54,7 +55,7 @@ async def get_channel_messages(
     return messages_response
 
 
-@router.get("/events", response_model=List[DiscordEvent])
+@router.get("/events/discord", response_model=List[DiscordEvent])
 async def get_events_route(
 
     ):
@@ -87,6 +88,30 @@ async def get_events_route(
     ]
     return events_response
 
+
+
+@router.get("/events", response_model=List[DiscordEvent])
+async def get_events_db_route(
+
+    ):
+    """
+        Get the events from the database
+    """
+    return None
+
+
+
+@router.patch("/events", response_model=DBEvent)
+async def create_event_route(
+
+    ):
+    """
+        Modify an event
+    """
+    #UPDATE IN DISCORD FIRST AND THEN UPDATE DATABASE
+    return None
+
+
 @router.get("/channels", response_model=List[Channel])
 async def get_channels():
     try:
@@ -107,6 +132,7 @@ async def get_channels():
 
 
 #TODO : Investigate a way to obtain the user's discord token for creating the events as the signed in user
+#   CHANGE TO DBEvent and return the event from the database after updating it from discord
 @router.post("/events", response_model= DiscordEvent)
 async def post_event_route(
         event : DiscordInputEvent,

@@ -2,6 +2,7 @@ from pydantic import BaseModel, ConfigDict, computed_field
 from typing import Optional
 from datetime import datetime, timedelta
 from typing import List, TypeVar, Optional, Generic
+from pydantic import Field
 
 T = TypeVar("T")
 
@@ -92,6 +93,14 @@ class UserSchema(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class CreatorProfile(BaseModel):
+    id: int
+    discord_id: str
+    user_name : str
+    global_name : str | None = None
+ 
+    model_config = ConfigDict(from_attributes=True)
+
 # class UserList(BaseModel):
 #     users : List[UserSchema]
 
@@ -147,6 +156,31 @@ class DiscordInputEvent(BaseModel):
     start_time : datetime
     end_time : datetime
     location : str | None = None
+
+class DBEvent(BaseModel):
+    """
+        Schema for Database Event objects
+    """
+    id : int
+    discord_id : str
+    name : str
+    description : str
+    channel_id : str | None = None
+    entity_type : int
+    start_time: datetime = Field(
+        validation_alias="scheduled_start_time",
+        serialization_alias="start_time",
+    )
+    end_time: datetime | None = Field(
+        validation_alias="scheduled_end_time",
+        serialization_alias="end_time",
+    )
+    created_at : datetime
+    last_updated_at : datetime
+    location : str
+    creator : CreatorProfile
+
+    model_config = ConfigDict(from_attributes=True)
 
 class Channel(BaseModel):
     id : str
