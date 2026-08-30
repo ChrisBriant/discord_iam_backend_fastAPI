@@ -107,7 +107,7 @@ class Event(Base):
             await db.flush()
             await db.refresh(event)
         except IntegrityError as ie:
-            print("Error inserting user", ie)
+            print("Error inserting event", ie)
             await db.rollback()
 
         inserted_event = await db.execute(
@@ -122,7 +122,30 @@ class Event(Base):
 
 
     @classmethod
-    async def get_all(cls, db: AsyncSession, page: int = 1 , page_size: int = 10):
+    async def get_all_from(cls, db: AsyncSession, date_from:datetime = None):
+        """
+            Get all the events
+            Defaults as from current date
+        """
+        if date_from is None:
+            date_from = datetime.now(timezone.utc)
+
+        print("DATE FROM: ", date_from)
+ 
+        result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.creator),
+            )
+            .where(cls.scheduled_start_time > date_from)
+        )
+
+        return result.scalars().all()
+
+
+
+    @classmethod
+    async def get_all_paginated(cls, db: AsyncSession, page: int = 1 , page_size: int = 10):
         """
             Get all the events
         """
@@ -176,6 +199,20 @@ class Event(Base):
                 selectinload(cls.creator),
             )
             .where(cls.id == event_id)
+        )
+        return result.scalar_one_or_none()
+
+    @classmethod
+    async def get_by_discord_id(cls, db: AsyncSession, discord_id: int):
+        """
+        Retrieve an event by ID
+        """
+        result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.creator),
+            )
+            .where(cls.discord_id == discord_id)
         )
         return result.scalar_one_or_none()
 
