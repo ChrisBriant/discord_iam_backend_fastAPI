@@ -57,6 +57,56 @@ async def create_event(event_data):
         print("STATUS CODE", result.status_code, result.json(), url)
         raise APIRetrievalError(status_code=result.status_code, message=result.json())
 
+async def update_event(event_id, event_data):
+    url = f"https://discord.com/api/v10/guilds/{guild_id}/scheduled-events/{event_id}"
+
+    headers = {
+        "Authorization": f"Bot {bot_token}",
+        "Content-Type": "application/json"
+    }
+
+    #Construct the event 
+    location = None
+    event_data_keys = event_data.keys()
+    if "entity_type" in event_data_keys:
+        if event_data["entity_type"] == 2:
+            if "channel_id" not in event_data_keys:
+                raise HTTPException(status_code=400,detail="Online events must include the channel id" )
+        elif event_data["entity_type"] == 3:
+            #THIS WILL NEED TO HAVE SOME VALIDATION FOR THE LOCATION IN FUTURE
+            if not event_data["entity_type"]:
+                raise HTTPException(status_code=400,detail="Physical events must include a location" )
+            location = event_data["location"]
+        else:
+            raise HTTPException(status_code=400,detail="Entity type must have a value of 2 (online) or 3 (physical)" )
+
+    print("START TIME", event_data.get("start_time"))
+
+    #start_time = datetime.fromisoformat(event_data.get("start_time")) if event_data.get("start_time") else None
+    #end_time = datetime.fromisoformat(event_data.get("end_time")) if event_data.get("end_time") else None
+
+    discord_payload = {
+        "description": event_data.get("description"),
+        "scheduled_end_time": event_data.get("start_time").isoformat() if event_data.get("start_time") else None,
+        "entity_type": event_data.get("entity_type"),
+        "name": event_data.get("name"),
+        "start_time": event_data.get("end_time").isoformat() if event_data.get("end_time") else None,
+        "channel_id": event_data.get("channel_id"),
+        "entity_metadata" : {"location": location} if location else None
+    }
+
+    result = requests.patch(url, headers=headers, json=discord_payload)
+
+    if result.status_code == 200:
+        data = result.json()
+        print("RESULT SUCCESSFUL", data)
+        return data
+    else:
+        print("STATUS CODE", result.status_code, result.json(), url)
+        raise APIRetrievalError(
+            status_code=result.status_code,
+            message=result.json()
+        )
 
 async def test_event_model():
     #TEST DATABASE EVENT FUNCTIONS
@@ -104,7 +154,7 @@ async def update_event_in_db_from_discord_data(session,event_id,discord_data):
         print("USER",user)
         location = discord_data.get('entity_metadata', {}).get('location')
         channel_id = discord_data.get('channel_id')
-        await Event.update_one(session,event_id,{
+        event = await Event.update_one(session,event_id,{
             "name" : discord_data["name"],
             "description" : discord_data["description"],
             "scheduled_start_time" : datetime.fromisoformat(discord_data["scheduled_start_time"]),
@@ -114,6 +164,7 @@ async def update_event_in_db_from_discord_data(session,event_id,discord_data):
             #"creator" : user,
             "channel_id" : channel_id,
         })
+        return event
     except Exception as e:
         print("ERROR UPDATING FROM DISCORD DATA", e)
 

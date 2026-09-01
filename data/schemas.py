@@ -177,7 +177,7 @@ class DBEvent(BaseModel):
     )
     created_at : datetime
     last_updated_at : datetime
-    location : str
+    location : str | None = None
     creator : CreatorProfile
 
     model_config = ConfigDict(from_attributes=True)

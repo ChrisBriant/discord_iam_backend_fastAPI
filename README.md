@@ -88,7 +88,22 @@ openssl req -x509 -nodes -newkey rsa:2048 -keyout private.key -out certificate.c
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload --ssl-keyfile=key.pem --ssl-certfile=cert.pem
 
 
+## TEST EVENT
+      "name": "Meeting for the sake of meeting",
+      "description": "Join this this evening for a pointless evening.",
+      "channel_id": "1393825603920199703",
+      "entity_type": 2,
+      "start_time": "2026-10-14T19:30:00Z",
+      "end_time": "2026-10-14T20:30:00Z",
+      "location": "1 privit drive",
 
 
 
-
+{
+    "description": "Let's watch some skeletons from the back yart.",
+    "scheduled_end_time": "2026-12-16T20:30:00+00:00",
+    "entity_type": 2,
+    "name": "Online skeleton watching",
+    "scheduled_start_time": "2026-12-16T19:00:00+00:00",
+    "channel_id": "1393825603920199703",
+}
