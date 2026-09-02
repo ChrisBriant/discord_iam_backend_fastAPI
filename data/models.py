@@ -224,7 +224,8 @@ class Event(Base):
         id: int,
         updates: dict,
     ) -> "Event | None":
-
+        print("FOUND EVENT")
+        
         event_result = await db.execute(
             select(cls)
             .options(
@@ -235,6 +236,7 @@ class Event(Base):
 
         event = event_result.scalar_one_or_none()
 
+        
         if event is None:
             return None
 
@@ -260,7 +262,7 @@ class Event(Base):
             "scheduled_end_time",
             "entity_type",
             "location",
-            "creator",
+            #"creator",
             "channel_id",
         }
 
@@ -270,10 +272,10 @@ class Event(Base):
                 if field not in allowed_fields:
                     continue
 
-                if field == "creator":
-                    event.creator = value
-                else:
-                    setattr(event, field, value)
+                # if field == "creator":
+                #     event.creator = value
+                # else:
+                #     setattr(event, field, value)
 
             event.last_updated_at = datetime.now(timezone.utc)
 

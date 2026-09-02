@@ -107,3 +107,15 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload --ssl-keyfile=key.pem --ssl
     "scheduled_start_time": "2026-12-16T19:00:00+00:00",
     "channel_id": "1393825603920199703",
 }
+
+
+## PATCH A PHYSICAL EVENT
+
+{
+    "description": "Let's watch some skeletons from the back yart.",
+    "end_time": "2026-12-16T20:30:00+00:00",
+    "entity_type": 3,
+    "name": "Online skeleton watching",
+    "start_time": "2026-12-16T19:00:00+00:00",
+    "location" : "The Police Station"
+}

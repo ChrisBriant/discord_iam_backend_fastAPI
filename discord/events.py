@@ -69,21 +69,19 @@ async def update_event(event_id, event_data):
     location = None
     event_data_keys = event_data.keys()
     if "entity_type" in event_data_keys:
+        print("ENTITY TYPE", event_data["entity_type"])
         if event_data["entity_type"] == 2:
             if "channel_id" not in event_data_keys:
                 raise HTTPException(status_code=400,detail="Online events must include the channel id" )
         elif event_data["entity_type"] == 3:
             #THIS WILL NEED TO HAVE SOME VALIDATION FOR THE LOCATION IN FUTURE
-            if not event_data["entity_type"]:
+            if not event_data["location"]:
                 raise HTTPException(status_code=400,detail="Physical events must include a location" )
             location = event_data["location"]
         else:
             raise HTTPException(status_code=400,detail="Entity type must have a value of 2 (online) or 3 (physical)" )
 
-    print("START TIME", event_data.get("start_time"))
 
-    #start_time = datetime.fromisoformat(event_data.get("start_time")) if event_data.get("start_time") else None
-    #end_time = datetime.fromisoformat(event_data.get("end_time")) if event_data.get("end_time") else None
 
     discord_payload = {
         "description": event_data.get("description"),
@@ -94,6 +92,8 @@ async def update_event(event_id, event_data):
         "channel_id": event_data.get("channel_id"),
         "entity_metadata" : {"location": location} if location else None
     }
+
+    print("PAYLOAD", discord_payload)
 
     result = requests.patch(url, headers=headers, json=discord_payload)
 
@@ -150,8 +150,8 @@ async def test_event_model():
 
 async def update_event_in_db_from_discord_data(session,event_id,discord_data):
     try:
+        print("USER",event_id,discord_data)
         user = await User.get_by_external_id(session,discord_data['creator']['id'])
-        print("USER",user)
         location = discord_data.get('entity_metadata', {}).get('location')
         channel_id = discord_data.get('channel_id')
         event = await Event.update_one(session,event_id,{

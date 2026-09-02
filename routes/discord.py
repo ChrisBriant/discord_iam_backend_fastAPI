@@ -200,11 +200,30 @@ async def modify_event_route(
             raise HTTPException(status_code=400,detail="An error occurred retrieving the event" )
         #UPDATE IN DISCORD FIRST AND THEN UPDATE DATABASE
         
-        updated_discord_event = await update_event(db_event.discord_id,event_data.model_dump())
+        try:
+            updated_discord_event = await update_event(db_event.discord_id,event_data.model_dump())
+        except APIRetrievalError as api_error:
+            print("Error", api_error)
+            raise HTTPException(status_code=400,detail="An error occurred updating discord")
+        except HTTPException as http_e:
+            print("An error occurred updating discord", http_e)
+            raise http_e
+        except Exception as e:
+            raise HTTPException(status_code=400,detail="An error occurred updating discord")
         print("UPDATED THE EVENT IN DISCORD", updated_discord_event)
         #DOESN'T UPDATE PROPERLY IN THE DATABASE - NEED TO LOOK AT WHY IT IS FAILING ON CREATOR OR IF IT IS EVEN
         #CREATOR SHOULD NOT BE REQUIRED
-        updated_db_event = await update_event_in_db_from_discord_data(session,event_id,updated_discord_event)
+        #updated_db_event = await update_event_in_db_from_discord_data(session,event_id,updated_discord_event)
+        location = updated_discord_event.get('entity_metadata', {}).get('location')
+        updated_db_event = await Event.update_one(session,event_id,{
+            "name" : updated_discord_event["name"],
+            "description" : updated_discord_event["description"],
+            "scheduled_start_time" : datetime.fromisoformat(updated_discord_event["scheduled_start_time"]),
+            "scheduled_end_time" : datetime.fromisoformat(updated_discord_event["scheduled_end_time"]),
+            "entity_type" : updated_discord_event["entity_type"],
+            "location"  : location,
+            "channel_id" : updated_discord_event["channel_id"],
+        })
         print("UPDATED IN DB", updated_db_event)
         response = DBEvent.model_validate(updated_db_event)
     return response
@@ -328,10 +347,28 @@ async def post_event_route(
     except Exception as e:
         print("ERROR", e) 
 
-#TODO : Create the endpoint code for modifying an event
-@router.patch("/events", response_model= DiscordEvent)
+#TODO : Create the endpoint code for deleting an event
+@router.delete("/events/{event_id}", response_model= str) #DBEvent)
 async def change_event_route(
+
     event : DiscordInputEvent,
     user = Depends(RequireRole(["User Manager","Role Manager"]))
 ):
+    """
+        delete an event
+    """
+    #1. Delete on discord
+    #2. Delete on the database
+    return ("Hello Alex")
+
+@router.delete("/events/{event_id}/creator", response_model= str) #DBEvent)
+async def change_event_route(
+
+    event : DiscordInputEvent,
+    user = Depends(RequireRole(["User Manager","Role Manager"]))
+):
+    """
+        Change the creator on an event
+    """
+    #1. Update in the database, needs database method
     return ("Hello Alex")
