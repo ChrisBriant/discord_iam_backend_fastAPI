@@ -3,7 +3,14 @@ from datetime import datetime
 from typing import Optional
 from fastapi.responses import RedirectResponse, JSONResponse
 from data.db import SessionLocal
-from authorisation.permissions import RequirePermission, RequireRole, IsEligible, IsAssigned, UserBasic
+from authorisation.permissions import (
+    RequirePermission, 
+    RequireRole,
+    RequireRoleOrOwner, 
+    IsEligible, 
+    IsAssigned, 
+    UserBasic
+)
 from data.schemas import (
     DiscordChannelMessage,
     DiscordUserProfile,
@@ -183,7 +190,7 @@ async def get_event_db_route(
 async def modify_event_route(
         event_id : int,
         event_data : DiscordInputEvent,
-        user = Depends(RequirePermission("Event Administrator"))
+        user = Depends(RequireRole(["Event Administrator", "Event Manager"]))
     ):
     """
         Modify an event
@@ -348,24 +355,23 @@ async def post_event_route(
         print("ERROR", e) 
 
 #TODO : Create the endpoint code for deleting an event
-@router.delete("/events/{event_id}", response_model= str) #DBEvent)
-async def change_event_route(
-
-    event : DiscordInputEvent,
-    user = Depends(RequireRole(["User Manager","Role Manager"]))
+@router.delete("/events/{object_id}", response_model= str) #DBEvent)
+async def delete_event_route(
+    user = Depends(RequireRoleOrOwner(["Event Administrator"],object_type = Event)),
 ):
     """
         delete an event
     """
+    print("USER", user)
+    #Get the event
     #1. Delete on discord
     #2. Delete on the database
     return ("Hello Alex")
 
 @router.delete("/events/{event_id}/creator", response_model= str) #DBEvent)
-async def change_event_route(
-
+async def change_event_organiser_route(
     event : DiscordInputEvent,
-    user = Depends(RequireRole(["User Manager","Role Manager"]))
+    user = Depends(RequireRole(["Event Administrator","Creator"]))
 ):
     """
         Change the creator on an event

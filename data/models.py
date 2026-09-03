@@ -122,6 +122,18 @@ class Event(Base):
 
 
     @classmethod
+    async def get_owner(cls, db: AsyncSession, event_id: int):
+        result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.creator),
+            )
+            .where(cls.id == event_id)
+        )
+        print("RESULT", result.__dict__)
+        return result.scalar_one_or_none().creator      
+
+    @classmethod
     async def get_all_from(cls, db: AsyncSession, date_from:datetime = None):
         """
             Get all the events

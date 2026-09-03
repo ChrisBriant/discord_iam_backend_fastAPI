@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException
 from authentication.token import validate_jwt
-from data.models import User
+from data.models import User, Event
 from data.db import SessionLocal
 from datetime import datetime, timezone
 from typing import List
@@ -74,7 +74,69 @@ class RequireRole:
             raise HTTPException(status_code=403, detail=f"A role in {self.roles} role is required")
 
         return user
-    
+
+
+async def get_authorised_user(token_data, roles):
+    async with SessionLocal() as session:
+        user = await User.get_by_id(
+            session,
+            int(token_data["user_id"])
+        )
+
+    if not user:
+        raise HTTPException(
+            status_code=403,
+            detail="User is not an authorised member"
+        )
+
+    if not user.terms_accepted:
+        raise HTTPException(
+            status_code=403,
+            detail="Please accept the terms and conditions"
+        )
+
+    if not user.enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="User is not enabled"
+        )
+
+    #Check roles
+    assigned_roles = [role.name for role in user.roles]
+    matching_roles = set(assigned_roles) & set(roles)
+    if len(matching_roles) < 1:
+        #User, but unauthorised for role
+        return False, user
+    #Authorised user
+    return True, user
+
+
+class RequireRoleOrOwner:
+    def __init__(self, roles: list[str],object_type):
+        self.roles = roles
+        self.object_type = object_type
+    async def __call__(
+        self,
+        object_id : int,
+        token_data = Depends(validate_jwt)        
+    ):
+        authorised_for_role, user = await get_authorised_user(token_data, self.roles)
+        if not authorised_for_role:
+            print("THE USER DOES NOT HAVE THE ROLE", object_id,self.object_type)
+            async with SessionLocal() as session:
+                try:
+                    owner = await Event.get_owner(session,object_id)
+                    print("OWNER IS", owner.id, "USER", user.id)
+                    if owner.id != user.id:
+                        raise HTTPException(status_code=403,detail=f"Requires membership of {self.roles} or ownership of the object")
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    print("ERROR", e)
+                    raise HTTPException(status_code=400,detail="An error occurred retrieving the object from the database")
+
+        return user   
+
 class IsEligible:
     async def __call__(
         self,
