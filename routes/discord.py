@@ -23,11 +23,18 @@ from data.schemas import (
 from typing import List
 #import bleach
 from discord.feed import get_messages, get_channels as get_channels_from_discord
-from discord.events import get_events, create_event, update_event, update_event_in_db_from_discord_data
+from discord.events import (
+    get_events, 
+    create_event, 
+    update_event,
+    delete_event,
+    update_event_in_db_from_discord_data
+)
 from utils.exceptions import APIRetrievalError
 from data.models import Event
 from math import ceil
 from sqlalchemy.exc import IntegrityError
+from requests.exceptions import HTTPError
 
 router = APIRouter()
 
@@ -355,18 +362,38 @@ async def post_event_route(
         print("ERROR", e) 
 
 #TODO : Create the endpoint code for deleting an event
-@router.delete("/events/{object_id}", response_model= str) #DBEvent)
+@router.delete("/events/{object_id}", status_code=204)
 async def delete_event_route(
+    object_id : int,
     user = Depends(RequireRoleOrOwner(["Event Administrator"],object_type = Event)),
 ):
     """
         delete an event
     """
-    print("USER", user)
-    #Get the event
-    #1. Delete on discord
-    #2. Delete on the database
-    return ("Hello Alex")
+    async with SessionLocal() as session:
+        #Get the event
+        event = await Event.get_by_id(session,object_id)
+        if not event:
+            raise HTTPException(status_code=404,detail="Event not found")
+        #1. Delete on discord
+        try:
+            success = await delete_event(event.discord_id)
+        except HTTPError as http_error:
+            raise HTTPException(
+                status_code=http_error.response.status_code,
+                detail=str(http_error)
+            )
+        except Exception as e:
+            raise HTTPException(status_code=400, detail="An error occurred" )
+        #2. Delete on the database
+        try:
+            success = await Event.delete_by_id(session, event.id)
+            if not success:
+                raise HTTPException(status_code=400,detail="Unable to delete event")
+        except Exception as e:
+            print("ERROR", e)
+            raise HTTPException(status_code=400,detail="An error occurred deleting from the database")
+        return
 
 @router.delete("/events/{event_id}/creator", response_model= str) #DBEvent)
 async def change_event_organiser_route(

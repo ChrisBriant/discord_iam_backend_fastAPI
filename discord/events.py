@@ -108,6 +108,19 @@ async def update_event(event_id, event_data):
             message=result.json()
         )
 
+
+async def delete_event(event_id):
+    url = f"https://discord.com/api/v10/guilds/{guild_id}/scheduled-events/{event_id}"
+
+    headers = {
+        "Authorization": f"Bot {bot_token}",
+        "Content-Type": "application/json"
+    }
+
+    result = requests.delete(url, headers=headers)
+    result.raise_for_status()
+    return True
+
 async def test_event_model():
     #TEST DATABASE EVENT FUNCTIONS
     test_event = {'id': '1542385039302463410', 'guild_id': '1393825603173744640', 'name': 'Stringy', 'description': 'string along with me', 'channel_id': None, 'creator_id': '1523518794746695710', 'image': None, 'scheduled_start_time': '2026-08-31T03:28:31.452000+00:00', 'scheduled_end_time': '2026-08-31T04:29:31.452000+00:00', 'status': 1, 'entity_type': 3, 'entity_id': None, 'recurrence_rule': None, 'privacy_level': 2, 'sku_ids': [], 'guild_scheduled_event_exceptions': [], 'entity_metadata': {'location': 'online'}}

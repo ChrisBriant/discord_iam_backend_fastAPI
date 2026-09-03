@@ -126,7 +126,6 @@ class RequireRoleOrOwner:
             async with SessionLocal() as session:
                 try:
                     owner = await Event.get_owner(session,object_id)
-                    print("OWNER IS", owner.id, "USER", user.id)
                     if owner.id != user.id:
                         raise HTTPException(status_code=403,detail=f"Requires membership of {self.roles} or ownership of the object")
                 except HTTPException:
