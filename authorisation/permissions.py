@@ -122,7 +122,6 @@ class RequireRoleOrOwner:
     ):
         authorised_for_role, user = await get_authorised_user(token_data, self.roles)
         if not authorised_for_role:
-            print("THE USER DOES NOT HAVE THE ROLE", object_id,self.object_type)
             async with SessionLocal() as session:
                 try:
                     owner = await Event.get_owner(session,object_id)

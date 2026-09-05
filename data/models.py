@@ -182,6 +182,42 @@ class Event(Base):
         return result.scalars().all(), total
 
 
+    @classmethod
+    async def set_creator(cls,db:AsyncSession,event_id:int,creator: "User"):
+        event_result = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.creator)
+            )
+            .where(cls.id == event_id)
+        )
+
+        event = event_result.scalar_one_or_none()
+
+        
+        if event is None:
+            return None
+
+        try:
+            event.creator = creator        
+            event.last_updated_at = datetime.now(timezone.utc)
+            await db.commit()
+            await db.flush()
+            await db.refresh(event)
+        except IntegrityError as ie:
+            print("Error updating event", ie)
+            await db.rollback()
+            return None
+        updated_event = await db.execute(
+            select(cls)
+            .options(
+                selectinload(cls.creator)
+            )
+            .where(cls.id == event_id)
+        )
+
+        return updated_event.scalar_one_or_none()
+
 
     @classmethod
     async def delete_by_id(

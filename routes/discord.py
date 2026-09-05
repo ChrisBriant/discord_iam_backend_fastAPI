@@ -7,9 +7,6 @@ from authorisation.permissions import (
     RequirePermission, 
     RequireRole,
     RequireRoleOrOwner, 
-    IsEligible, 
-    IsAssigned, 
-    UserBasic
 )
 from data.schemas import (
     DiscordChannelMessage,
@@ -27,11 +24,10 @@ from discord.events import (
     get_events, 
     create_event, 
     update_event,
-    delete_event,
-    update_event_in_db_from_discord_data
+    delete_event
 )
 from utils.exceptions import APIRetrievalError
-from data.models import Event
+from data.models import Event, User
 from math import ceil
 from sqlalchemy.exc import IntegrityError
 from requests.exceptions import HTTPError
@@ -395,13 +391,27 @@ async def delete_event_route(
             raise HTTPException(status_code=400,detail="An error occurred deleting from the database")
         return
 
-@router.delete("/events/{event_id}/creator", response_model= str) #DBEvent)
+@router.patch(
+    "/events/{event_id}/creator/{creator_id}",
+    dependencies = [Depends(RequireRoleOrOwner(["Event Administrator","Event Manager"],object_type = Event))],
+    response_model= DBEvent
+)
 async def change_event_organiser_route(
-    event : DiscordInputEvent,
-    user = Depends(RequireRole(["Event Administrator","Creator"]))
+    event_id : int,
+    creator_id : int
 ):
     """
-        Change the creator on an event
+        Change the creator / organiser of an event
     """
-    #1. Update in the database, needs database method
-    return ("Hello Alex")
+    #1. Update in the database
+
+    #Get the user
+    async with SessionLocal() as session:
+        creator = await User.get_by_id(session,creator_id)
+        if not creator:
+            raise HTTPException(status_code=404,detail="User not found")
+        updated_event = await Event.set_creator(session,event_id,creator)
+        if not updated_event:
+            raise HTTPException(status_code=404,detail="Event not found")
+        event_response = DBEvent.model_validate(updated_event)
+        return event_response
