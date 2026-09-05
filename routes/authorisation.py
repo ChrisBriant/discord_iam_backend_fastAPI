@@ -90,6 +90,14 @@ async def get_roles(
     """
         Check that the user is authorised and then retrieve all roles
     """
+    #Defined Rules (for filter)
+    defined_roles = [
+        "Channel Manager",
+        "Event Manager",
+        "User Manager",
+        "Role Manager",
+        "Event Administrator"
+    ]
     #Get the users
     async with SessionLocal() as session:
         all_roles, total_roles = await Role.get_all(
@@ -98,9 +106,9 @@ async def get_roles(
             page_size
         )
 
-        for role in all_roles:
-            print("ROLE ", role.id, role.eligible_users_association)
-            all_roles_result = [RoleSchemaWithUsers.model_validate(u) for u in all_roles ]
+        #filter
+        all_defined_roles = [r for r in all_roles if r.name in defined_roles]
+        all_roles_result = [RoleSchemaWithUsers.model_validate(u) for u in all_defined_roles ]
 
             
 
