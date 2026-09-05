@@ -167,14 +167,51 @@ class DBEvent(BaseModel):
     description : str
     channel_id : str | None = None
     entity_type : int
-    start_time: datetime = Field(
-        validation_alias="scheduled_start_time",
-        serialization_alias="start_time",
-    )
-    end_time: datetime | None = Field(
-        validation_alias="scheduled_end_time",
-        serialization_alias="end_time",
-    )
+
+    scheduled_start_time: datetime
+    scheduled_end_time: datetime | None = None
+
+    # @computed_field
+    # @property
+    # def start_time(self) -> datetime:
+    #     return self.scheduled_start_time
+
+    # @computed_field
+    # @property
+    # def end_time(self) -> datetime | None:
+    #     return self.scheduled_end_time
+    # start_time: datetime = Field(alias="scheduled_start_time")
+    # end_time: datetime | None = Field(alias="scheduled_end_time")
+    # start_time: datetime = Field(
+    #     validation_alias=AliasPath("scheduled_start_time")
+    # )
+    # end_time: datetime | None = Field(
+    #     validation_alias=AliasPath("scheduled_end_time")
+    # )
+    # start_time: datetime = Field(
+    #     validation_alias="scheduled_start_time",
+    #     serialization_alias="start_time",
+    # )
+    # end_time: datetime | None = Field(
+    #     validation_alias="scheduled_end_time",
+    #     serialization_alias="end_time",
+    # )
+    # start_time: datetime = Field(
+    #     validation_alias="scheduled_start_time", 
+    #     serialization_alias="scheduled_start_time"  # Optional: omit if you want JSON output to be 'start_time'
+    # )
+    # end_time: datetime | None = Field(
+    #     default=None,
+    #     validation_alias="scheduled_end_time", 
+    #     serialization_alias="scheduled_end_time"  # Optional
+    # )
+    # @property
+    # def start_time(self) -> datetime:
+    #     return self.scheduled_start_time
+
+    # @start_time.setter
+    # def start_time(self, value: datetime) -> None:
+    #     self.scheduled_start_time = value
     created_at : datetime
     last_updated_at : datetime
     location : str | None = None
