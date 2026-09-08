@@ -1,5 +1,6 @@
 import jwt
 import os
+import requests
 from jwt.exceptions import ExpiredSignatureError, InvalidAudienceError, InvalidSignatureError
 from datetime import datetime, timedelta, timezone
 from functools import wraps
@@ -157,4 +158,30 @@ async def validate_jwt(request: Request):
 
     return payload
 
+
+async def validate_discord_token(request: Request):
+
+    token = request.cookies.get("discord_token")
+
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Discord authentication required"
+        )
+
+
+    response = requests.get(
+        "https://discord.com/api/v10/users/@me",
+        headers={
+            "Authorization": f"Bearer {token}"
+        }
+    )
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Discord token"
+        )
+
+    return response.json()
 

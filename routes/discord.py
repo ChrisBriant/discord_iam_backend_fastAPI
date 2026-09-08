@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 from fastapi.responses import RedirectResponse, JSONResponse
 from data.db import SessionLocal
+from authentication.token import validate_discord_token
 from authorisation.permissions import (
     RequirePermission, 
     RequireRole,
@@ -415,3 +416,17 @@ async def change_event_organiser_route(
             raise HTTPException(status_code=404,detail="Event not found")
         event_response = DBEvent.model_validate(updated_event)
         return event_response
+
+
+@router.post(
+    "/channels/{channel_id}/post",
+    #dependencies = [Depends()],
+    response_model= str
+)
+async def post_to_channel(
+    channel_id : int,
+    discord_user = Depends(validate_discord_token),
+):
+    print("POST TO CHANNEL", discord_user, channel_id)
+
+    return "Hello Micky"

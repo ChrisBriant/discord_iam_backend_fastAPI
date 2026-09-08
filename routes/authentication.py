@@ -178,6 +178,17 @@ async def auth_callback_with_redirect(request: Request, provider: str, code: str
             samesite="none",
             max_age=REFRESH_TOKEN_LIFETIME, 
         )
+
+        #Store the access token in the browser session
+        response.set_cookie(
+            key="discord_token",
+            value=access_token,
+            httponly=True,
+            secure=True,
+            samesite="none",
+        )
+
+
     #MOBILE FLOW NOT USED FOR NOW
     # else :
     #     #Generate an auth code
