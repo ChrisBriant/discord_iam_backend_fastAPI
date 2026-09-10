@@ -225,3 +225,6 @@ class Channel(BaseModel):
     parent_id : str | None = None
 
     #model_config = ConfigDict(from_attributes=True)
+
+class MessageSchema(BaseModel):
+    message: str

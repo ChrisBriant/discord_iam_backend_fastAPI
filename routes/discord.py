@@ -17,15 +17,24 @@ from data.schemas import (
     DiscordInputEvent,
     DBEvent,
     Channel,
+    MessageSchema,
 )
 from typing import List
 #import bleach
-from discord.feed import get_messages, get_channels as get_channels_from_discord
+from discord.feed import (
+ get_messages, 
+ get_channels as get_channels_from_discord,
+ post_to_channel,
+ post_to_channel_as_bot
+) 
 from discord.events import (
     get_events, 
     create_event, 
     update_event,
     delete_event
+)
+from discord.users import (
+    kick_user
 )
 from utils.exceptions import APIRetrievalError
 from data.models import Event, User
@@ -420,13 +429,58 @@ async def change_event_organiser_route(
 
 @router.post(
     "/channels/{channel_id}/post",
-    #dependencies = [Depends()],
     response_model= str
 )
-async def post_to_channel(
+async def post_to_channel_route(
     channel_id : int,
-    discord_user = Depends(validate_discord_token),
+    message : MessageSchema,
+    discord_user_and_token = Depends(validate_discord_token),
 ):
-    print("POST TO CHANNEL", discord_user, channel_id)
+    print("POST TO CHANNEL", discord_user_and_token, channel_id)
+    try:
+        await post_to_channel_as_bot( discord_user_and_token["discord_user"]["username"],channel_id,message.message)
+    except HTTPError as http_error:
+        raise HTTPException(
+            status_code=http_error.response.status_code,
+            detail=str(http_error)
+        )
+    except Exception as e:
+        print("ERROR", e)
+        raise HTTPException(status_code=400, detail="An error occurred posting to the channel")
+    return "Successful"
 
-    return "Hello Micky"
+
+@router.delete(
+    "/users/{user_id}/kick",
+    dependencies = [Depends(RequireRole(["User Manager"]))],
+    status_code=204)
+async def kick_user_route(
+    user_id : int
+):
+    #Get the user from the database
+    async with SessionLocal() as session:
+        try:
+            user = await User.get_by_id(session,user_id)
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found in database")
+            try:
+                user_removed_from_discord_server = await kick_user(user.discord_id)
+                print("IS USER REMOVED", user_removed_from_discord_server)
+            except HTTPError as http_error:
+                raise HTTPException(
+                    status_code=http_error.response.status_code,
+                    detail=str(http_error)
+                )
+            if user_removed_from_discord_server:
+                #Update database
+                try:
+                    await User.update_user(session,user_id,{
+                        "banned" : True
+                    })
+                except Exception as e:
+                    print("ERROR", e)
+                    raise HTTPException(status_code=400, detail="Unable to update database")
+        except Exception as e:
+            print("ERROR", e)
+            raise HTTPException(status_code=400, detail="An error occurred trying to remove the user")
+    return

@@ -183,5 +183,8 @@ async def validate_discord_token(request: Request):
             detail="Invalid Discord token"
         )
 
-    return response.json()
+    return {
+        "discord_token" : token,
+        "discord_user" : response.json()
+    }
 

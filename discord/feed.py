@@ -53,6 +53,43 @@ async def get_channels():
         print("STATUS CODE", result.status_code, result.json(), url)
         raise APIRetrievalError("Unable to retrieve data")
 
+#THIS DOESN'T WORK AS IT IS NOT PERMITTED BY DISCORD TO POST AS THE USER VIA OAUTH
+async def post_to_channel(discord_token,channel_id, message):
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+
+    headers = {
+        "Authorization": f"Bearer {discord_token}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "content" : message
+    }
+
+    result = requests.post(url, headers=headers, json=payload)
+    print("RESULT", result.text)
+
+    result.raise_for_status()
+    return result.json()
+
+async def post_to_channel_as_bot(user_name,channel_id, message):
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages"
+
+    headers = {
+        "Authorization": f"Bot {bot_token}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "content" : f"**[{user_name}]** {message}"
+    }
+
+    result = requests.post(url, headers=headers, json=payload)
+    print("RESULT", result.text)
+
+    result.raise_for_status()
+    return result.json()
+
 
 async def main(channel_id):
     # discord_messages = None
